@@ -52,32 +52,39 @@ app.addHook('onResponse', (request, reply) => {
 })
 
 /**
- * Health check
+ * Health check - Timeout config pour Render
  */
 const healthCheck = async () => {
   const result = {
     service: 'ads-service',
     status: 'ok',
-    database: 'unknown',
+    database: 'checking',
     time: new Date().toISOString(),
   }
 
+  // Vérifier Supabase AVEC TIMEOUT LONG (10s pour Render)
   try {
     const dbPromise = app.supabase
       .from('ads_campaigns')
       .select('id')
       .limit(1)
 
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Supabase timeout')), 3000)
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Database timeout')), 10000)
     )
 
-    const { error } = await Promise.race([dbPromise, timeoutPromise]) as any
-    result.database = error ? 'error' : 'connected'
+    try {
+      const response = await Promise.race([dbPromise, timeoutPromise])
+      const { error } = response as any
+      result.database = error ? 'error' : 'connected'
+    } catch (raceError) {
+      result.database = 'timeout'
+    }
   } catch (err) {
     result.database = 'error'
   }
 
+  // ✅ Retourner immédiatement, même si DB est en erreur
   return result
 }
 
