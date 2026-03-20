@@ -27,11 +27,14 @@ interface UserProfile {
 
 export class DeliveryService {
   private readonly CACHE_TTL = 300; // 5 minutes
+  private readonly USE_REDIS = false; // 🔥 TEMPORARY: Disable Redis for debugging
 
   constructor(
     private supabase: SupabaseClient,
     private redis: any // Simplified type to avoid Redis type issues
-  ) {}
+  ) {
+    console.log('[DeliveryService] Initialized - USE_REDIS:', this.USE_REDIS);
+  }
 
   private matchesUserProfile(campaign: any, userProfile: UserProfile): boolean {
     // Check specific user targeting first
@@ -65,141 +68,175 @@ export class DeliveryService {
   }
 
   async getCarouselAds(userProfile: UserProfile = {}): Promise<CarouselAd[]> {
+    console.log('[getCarouselAds] STEP 1 - Starting', { userProfile });
     const cacheKey = 'carousel_ads';
 
-    // Try cache first if Redis is connected
-    try {
-      if (this.redis.isOpen) {
-        const cached = await this.redis.get(cacheKey);
-        if (cached) {
-          const ads = JSON.parse(cached);
-          return ads.filter((ad: any) => this.matchesUserProfile(ad, userProfile));
+    // Try cache first if Redis is connected (DISABLED FOR DEBUGGING)
+    if (this.USE_REDIS) {
+      try {
+        console.log('[getCarouselAds] STEP 2 - Checking Redis');
+        if (this.redis && this.redis.isOpen) {
+          // Add timeout for Redis operations
+          const cacheTimeout = new Promise<string | null>((_, reject) =>
+            setTimeout(() => reject(new Error('Redis timeout')), 2000)
+          );
+          const cachePromise = this.redis.get(cacheKey);
+          
+          const cached = await Promise.race([cachePromise, cacheTimeout]);
+          if (cached) {
+            console.log('[getCarouselAds] STEP 3 - Cache hit');
+            const ads = JSON.parse(cached);
+            return ads.filter((ad: any) => this.matchesUserProfile(ad, userProfile));
+          }
         }
+      } catch (error) {
+        console.warn('[getCarouselAds] Redis cache read failed:', (error as Error).message);
       }
-    } catch (error) {
-      console.warn('Redis cache read failed:', (error as Error).message);
+    } else {
+      console.log('[getCarouselAds] STEP 2 - Skipping Redis (USE_REDIS=false)');
     }
 
-    // Fetch from DB with targeting fields
-    const { data, error } = await this.supabase
+    // Fetch campaigns from DB (SAFE - manual join)
+    console.log('[getCarouselAds] STEP 3 - Fetching campaigns from Supabase');
+    
+    const { data: campaigns, error: campaignsError } = await this.supabase
       .from('ads_campaigns')
-      .select(`
-        id,
-        name,
-        description,
-        target_gender,
-        target_user_type,
-        target_users,
-        min_age,
-        target_location,
-        is_active,
-        medias (
-          id,
-          filename,
-          url,
-          type,
-          created_at
-        )
-      `)
-      .eq('is_active', true)
-      .eq('type', 'carousel');
+      .select('*')
+      .eq('status', 'active')
+      .eq('destination', 'carousel');
 
-    if (error) throw error;
+    if (campaignsError) {
+      console.error('[getCarouselAds] Campaigns fetch error:', campaignsError);
+      throw campaignsError;
+    }
 
-    // Filter by user profile
-    const filteredCampaigns = data.filter((campaign: any) =>
+    console.log('[getCarouselAds] STEP 4 - Got campaigns, count:', (campaigns as any[])?.length);
+    if (campaigns && (campaigns as any[]).length > 0) {
+      console.log('[getCarouselAds] First campaign structure:', JSON.stringify((campaigns as any[])[0], null, 2));
+    }
+
+    // Manual JOIN and filter by user profile
+    const filteredCampaigns = campaigns.filter((campaign: any) =>
       this.matchesUserProfile(campaign, userProfile)
     );
 
+    console.log('[getCarouselAds] STEP 5 - Filtered campaigns, count:', filteredCampaigns.length);
+
     const ads: CarouselAd[] = filteredCampaigns.map(campaign => ({
       id: campaign.id,
-      title: campaign.name,
-      image: campaign.medias?.[0]?.url || '',
+      title: campaign.title,
+      image: campaign.media_url || '',
       description: campaign.description,
     }));
 
     // Cache the result if Redis is available
-    try {
-      if (this.redis.isOpen) {
-        await this.redis.setEx(cacheKey, this.CACHE_TTL, JSON.stringify(ads));
+    if (this.USE_REDIS) {
+      try {
+        console.log('[getCarouselAds] STEP 6 - Caching to Redis');
+        if (this.redis && this.redis.isOpen) {
+          const cacheTimeout = new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new Error('Redis timeout')), 2000)
+          );
+          const cachePromise = this.redis.setEx(cacheKey, this.CACHE_TTL, JSON.stringify(ads));
+          
+          await Promise.race([cachePromise, cacheTimeout]);
+        }
+      } catch (error) {
+        console.warn('[getCarouselAds] Redis cache write failed:', (error as Error).message);
       }
-    } catch (error) {
-      console.warn('Redis cache write failed:', (error as Error).message);
     }
 
+    console.log('[getCarouselAds] STEP 7 - Complete, returning', ads.length, 'ads');
     return ads;
   }
 
   async getShortsAds(userProfile: UserProfile = {}): Promise<ShortsAd[]> {
+    console.log('[getShortsAds] STEP 1 - Starting', { userProfile });
     const cacheKey = 'shorts_ads';
 
-    // Try cache first if Redis is connected
-    try {
-      if (this.redis.isOpen) {
-        const cached = await this.redis.get(cacheKey);
-        if (cached) {
-          const ads = JSON.parse(cached);
-          return ads.filter((ad: any) => this.matchesUserProfile(ad, userProfile));
+    // Try cache first if Redis is connected (DISABLED FOR DEBUGGING)
+    if (this.USE_REDIS) {
+      try {
+        console.log('[getShortsAds] STEP 2 - Checking Redis');
+        if (this.redis && this.redis.isOpen) {
+          // Add timeout for Redis operations
+          const cacheTimeout = new Promise<string | null>((_, reject) =>
+            setTimeout(() => reject(new Error('Redis timeout')), 2000)
+          );
+          const cachePromise = this.redis.get(cacheKey);
+          
+          const cached = await Promise.race([cachePromise, cacheTimeout]);
+          if (cached) {
+            console.log('[getShortsAds] STEP 3 - Cache hit');
+            const ads = JSON.parse(cached);
+            return ads.filter((ad: any) => this.matchesUserProfile(ad, userProfile));
+          }
         }
+      } catch (error) {
+        console.warn('[getShortsAds] Redis cache read failed:', (error as Error).message);
       }
-    } catch (error) {
-      console.warn('Redis cache read failed:', (error as Error).message);
+    } else {
+      console.log('[getShortsAds] STEP 2 - Skipping Redis (USE_REDIS=false)');
     }
 
-    // Fetch from DB with targeting fields
-    const { data, error } = await this.supabase
+    // Fetch campaigns from DB (SAFE - manual join)
+    console.log('[getShortsAds] STEP 3 - Fetching campaigns from Supabase');
+    
+    const { data: campaigns, error: campaignsError } = await this.supabase
       .from('ads_campaigns')
-      .select(`
-        id,
-        name,
-        description,
-        target_gender,
-        target_user_type,
-        target_users,
-        min_age,
-        target_location,
-        is_active,
-        medias (
-          id,
-          filename,
-          url,
-          type,
-          created_at
-        )
-      `)
-      .eq('is_active', true)
-      .eq('type', 'shorts');
+      .select('*')
+      .eq('status', 'active')
+      .eq('destination', 'shorts');
 
-    if (error) throw error;
+    if (campaignsError) {
+      console.error('[getShortsAds] Campaigns fetch error:', campaignsError);
+      throw campaignsError;
+    }
 
-    // Filter by user profile
-    const filteredCampaigns = data.filter((campaign: any) =>
+    console.log('[getShortsAds] STEP 4 - Got campaigns, count:', (campaigns as any[])?.length);
+    if (campaigns && (campaigns as any[]).length > 0) {
+      console.log('[getShortsAds] First campaign structure:', JSON.stringify((campaigns as any[])[0], null, 2));
+    }
+
+    // Manual JOIN and filter by user profile
+    const filteredCampaigns = campaigns.filter((campaign: any) =>
       this.matchesUserProfile(campaign, userProfile)
     );
 
+    console.log('[getShortsAds] STEP 5 - Filtered campaigns, count:', filteredCampaigns.length);
+
     const ads: ShortsAd[] = filteredCampaigns.map(campaign => ({
       id: campaign.id,
-      title: campaign.name,
-      video: campaign.medias?.[0]?.url || '',
-      thumbnail: `https://via.placeholder.com/300x200?text=${encodeURIComponent(campaign.name)}`, // Placeholder
+      title: campaign.title,
+      video: campaign.media_url || '',
+      thumbnail: campaign.thumbnail_url || `https://via.placeholder.com/300x200?text=${encodeURIComponent(campaign.title)}`,
       description: campaign.description,
     }));
 
     // Cache the result if Redis is available
-    try {
-      if (this.redis.isOpen) {
-        await this.redis.setEx(cacheKey, this.CACHE_TTL, JSON.stringify(ads));
+    if (this.USE_REDIS) {
+      try {
+        console.log('[getShortsAds] STEP 6 - Caching to Redis');
+        if (this.redis && this.redis.isOpen) {
+          const cacheTimeout = new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new Error('Redis timeout')), 2000)
+          );
+          const cachePromise = this.redis.setEx(cacheKey, this.CACHE_TTL, JSON.stringify(ads));
+          
+          await Promise.race([cachePromise, cacheTimeout]);
+        }
+      } catch (error) {
+        console.warn('[getShortsAds] Redis cache write failed:', (error as Error).message);
       }
-    } catch (error) {
-      console.warn('Redis cache write failed:', (error as Error).message);
     }
 
+    console.log('[getShortsAds] STEP 7 - Complete, returning', ads.length, 'ads');
     return ads;
   }
 
   async invalidateCache(): Promise<void> {
     try {
-      if (this.redis.isOpen) {
+      if (this.redis && this.redis.isOpen) {
         await Promise.all([
           this.redis.del('carousel_ads'),
           this.redis.del('shorts_ads'),

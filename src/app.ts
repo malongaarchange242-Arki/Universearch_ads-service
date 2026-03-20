@@ -32,21 +32,21 @@ app.register(cors, {
  * Décorateurs
  */
 app.decorate('supabase', createSupabaseClient())
-// app.decorate('redis', createRedisClient()) // Temporarily disabled to check if Redis blocks
+app.decorate('redis', createRedisClient())
 
 /**
  * Connexion Redis non bloquante
  */
-// app.addHook('onReady', () => {
-//   setImmediate(async () => {
-//     try {
-//       await app.redis.connect()
-//       app.log.info('Redis connected')
-//     } catch (err) {
-//       app.log.warn('Redis unavailable, continuing without cache')
-//     }
-//   })
-// }) // Temporarily disabled
+app.addHook('onReady', () => {
+  setImmediate(async () => {
+    try {
+      await app.redis.connect()
+      app.log.info('Redis connected')
+    } catch (err) {
+      app.log.warn('Redis unavailable, continuing without cache')
+    }
+  })
+})
 
 /**
  * Hook unique pour tracking + rate limit
