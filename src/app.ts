@@ -111,7 +111,7 @@ app.addHook('onResponse', (request, reply) => {
 /**
  * Health check simple
  */
-app.get('/health', async () => {
+const healthCheck = async () => {
   const result = {
     service: 'ads-service',
     status: 'ok',
@@ -143,7 +143,10 @@ app.get('/health', async () => {
   }
 
   return result
-})
+}
+
+app.get('/health', healthCheck)
+app.post('/health', healthCheck)
 
 /**
  * Routes
