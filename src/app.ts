@@ -40,6 +40,11 @@ app.decorate('redis', createRedisClient())
 app.addHook('onReady', () => {
   setImmediate(async () => {
     try {
+      if (!app.redis) {
+        app.log.warn('Redis is null/disabled (no REDIS_URL set)')
+        return
+      }
+
       await app.redis.connect()
       app.log.info('Redis connected')
     } catch (err) {
@@ -109,7 +114,7 @@ app.addHook('onResponse', (request, reply) => {
 })
 
 /**
- * Health check simple
+ * Health check avec timeouts
  */
 const healthCheck = async () => {
   const result = {
@@ -121,18 +126,25 @@ const healthCheck = async () => {
   }
 
   try {
-    const { error } = await app.supabase
+    const dbPromise = app.supabase
       .from('ads_campaigns')
       .select('id')
       .limit(1)
 
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Supabase timeout')), 3000)
+    )
+
+    const { error } = await Promise.race([dbPromise, timeoutPromise]) as any
     result.database = error ? 'error' : 'connected'
-  } catch {
+  } catch (err) {
     result.database = 'error'
   }
 
   try {
-    if (app.redis?.isOpen) {
+    if (!app.redis) {
+      result.redis = 'disabled'
+    } else if (app.redis.isOpen) {
       await app.redis.ping()
       result.redis = 'connected'
     } else {
@@ -171,6 +183,6 @@ app.setErrorHandler((error, request, reply) => {
 declare module 'fastify' {
   interface FastifyInstance {
     supabase: ReturnType<typeof createSupabaseClient>
-    redis: ReturnType<typeof createRedisClient>
+    redis: ReturnType<typeof createRedisClient> | null
   }
 }

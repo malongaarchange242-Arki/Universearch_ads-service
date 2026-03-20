@@ -9,6 +9,7 @@ const fastify_1 = __importDefault(require("fastify"));
 const multipart_1 = __importDefault(require("@fastify/multipart"));
 const cors_1 = __importDefault(require("@fastify/cors"));
 const supabase_1 = require("./config/supabase");
+const redis_1 = require("./config/redis");
 const routes_1 = require("./routes");
 exports.app = (0, fastify_1.default)({
     logger: {
@@ -32,20 +33,21 @@ exports.app.register(cors_1.default, {
  * Décorateurs
  */
 exports.app.decorate('supabase', (0, supabase_1.createSupabaseClient)());
-// app.decorate('redis', createRedisClient()) // Temporarily disabled to check if Redis blocks
+exports.app.decorate('redis', (0, redis_1.createRedisClient)());
 /**
  * Connexion Redis non bloquante
  */
-// app.addHook('onReady', () => {
-//   setImmediate(async () => {
-//     try {
-//       await app.redis.connect()
-//       app.log.info('Redis connected')
-//     } catch (err) {
-//       app.log.warn('Redis unavailable, continuing without cache')
-//     }
-//   })
-// }) // Temporarily disabled
+exports.app.addHook('onReady', () => {
+    setImmediate(async () => {
+        try {
+            await exports.app.redis.connect();
+            exports.app.log.info('Redis connected');
+        }
+        catch (err) {
+            exports.app.log.warn('Redis unavailable, continuing without cache');
+        }
+    });
+});
 /**
  * Hook unique pour tracking + rate limit
  */
@@ -95,7 +97,7 @@ exports.app.addHook('onResponse', (request, reply) => {
 /**
  * Health check simple
  */
-exports.app.get('/health', async () => {
+const healthCheck = async () => {
     const result = {
         service: 'ads-service',
         status: 'ok',
@@ -126,7 +128,9 @@ exports.app.get('/health', async () => {
         result.redis = 'error';
     }
     return result;
-});
+};
+exports.app.get('/health', healthCheck);
+exports.app.post('/health', healthCheck);
 /**
  * Routes
  */
