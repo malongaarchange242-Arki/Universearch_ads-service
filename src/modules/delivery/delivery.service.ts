@@ -82,7 +82,7 @@ export class DeliveryService {
 
     // Fetch from DB with targeting fields
     const { data, error } = await this.supabase
-      .from('campaigns')
+      .from('ads_campaigns')
       .select(`
         id,
         name,
@@ -148,7 +148,7 @@ export class DeliveryService {
 
     // Fetch from DB with targeting fields
     const { data, error } = await this.supabase
-      .from('campaigns')
+      .from('ads_campaigns')
       .select(`
         id,
         name,
