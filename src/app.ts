@@ -52,44 +52,40 @@ app.addHook('onResponse', (request, reply) => {
 })
 
 /**
- * Health check - Timeout config pour Render
+ * Health check - Instantané (zéro dépendance)
  */
-const healthCheck = async () => {
-  const result = {
+app.get('/health', async () => {
+  return {
     service: 'ads-service',
     status: 'ok',
-    database: 'checking',
     time: new Date().toISOString(),
   }
+})
 
-  // Vérifier Supabase AVEC TIMEOUT LONG (10s pour Render)
-  try {
-    const dbPromise = app.supabase
-      .from('ads_campaigns')
-      .select('id')
-      .limit(1)
-
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Database timeout')), 10000)
-    )
-
-    try {
-      const response = await Promise.race([dbPromise, timeoutPromise])
-      const { error } = response as any
-      result.database = error ? 'error' : 'connected'
-    } catch (raceError) {
-      result.database = 'timeout'
-    }
-  } catch (err) {
-    result.database = 'error'
+app.post('/health', async () => {
+  return {
+    service: 'ads-service',
+    status: 'ok',
+    time: new Date().toISOString(),
   }
+})
 
-  // ✅ Retourner immédiatement, même si DB est en erreur
-  return result
-}
-
-app.get('/health', healthCheck)
-app.post('/health', healthCheck)
+/**
+ * Health check détaillé - Pour monitoring (avec DB)
+ */
+app.get('/health/db', async () => {
+  try {
+    await Promise.race([
+      app.supabase.from('ads_campaigns').select('id').limit(1),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Database timeout')), 5000)
+      ),
+    ])
+    return { database: 'connected' }
+  } catch {
+    return { database: 'error' }
+  }
+})
 
 /**
  * Routes
