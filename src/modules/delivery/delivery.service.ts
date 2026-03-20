@@ -36,34 +36,40 @@ export class DeliveryService {
     console.log('[DeliveryService] Initialized - USE_REDIS:', this.USE_REDIS);
   }
 
-  private matchesUserProfile(campaign: any, userProfile: UserProfile): boolean {
+  private matchesUserProfile(campaign: any, userProfile: UserProfile, debug: boolean = false): boolean {
     // Check specific user targeting first
     if (campaign.target_users && campaign.target_users.length > 0) {
       if (!userProfile.user_id || !campaign.target_users.includes(userProfile.user_id)) {
+        if (debug) console.log(`  ❌ Campaign "${campaign.title}" - specific user targeting mismatch`);
         return false;
       }
     }
 
     // Gender matching
     if (campaign.target_gender && campaign.target_gender !== userProfile.gender) {
+      if (debug) console.log(`  ❌ Campaign "${campaign.title}" - gender="${campaign.target_gender}" but user gender="${userProfile.gender}"`);
       return false;
     }
 
     // User type matching (bachelier / etudiant / parent)
     if (campaign.target_user_type && campaign.target_user_type !== userProfile.user_type) {
+      if (debug) console.log(`  ❌ Campaign "${campaign.title}" - userType="${campaign.target_user_type}" but user type="${userProfile.user_type}"`);
       return false;
     }
 
     // Age matching
     if (campaign.min_age && userProfile.age && userProfile.age < campaign.min_age) {
+      if (debug) console.log(`  ❌ Campaign "${campaign.title}" - minAge=${campaign.min_age} but user age=${userProfile.age}`);
       return false;
     }
 
     // Location matching
-    if (campaign.target_location && campaign.target_location !== userProfile.location) {
+    if (campaign.location && campaign.location !== userProfile.location) {
+      if (debug) console.log(`  ❌ Campaign "${campaign.title}" - location="${campaign.location}" but user location="${userProfile.location}"`);
       return false;
     }
 
+    if (debug) console.log(`  ✅ Campaign "${campaign.title}" - MATCHES all targeting criteria`);
     return true;
   }
 
@@ -116,11 +122,14 @@ export class DeliveryService {
     }
 
     // Manual JOIN and filter by user profile
-    const filteredCampaigns = campaigns.filter((campaign: any) =>
-      this.matchesUserProfile(campaign, userProfile)
+    console.log(`[getCarouselAds] STEP 5 - Filtering ${(campaigns as any[])?.length} campaigns for user:`, 
+      Object.keys(userProfile).length > 0 ? userProfile : '(no targeting applied)');
+    
+    const filteredCampaigns = (campaigns as any[]).filter((campaign: any) =>
+      this.matchesUserProfile(campaign, userProfile, true)
     );
 
-    console.log('[getCarouselAds] STEP 5 - Filtered campaigns, count:', filteredCampaigns.length);
+    console.log('[getCarouselAds] STEP 6 - Filtered campaigns, count:', filteredCampaigns.length);
 
     const ads: CarouselAd[] = filteredCampaigns.map(campaign => ({
       id: campaign.id,
@@ -132,7 +141,7 @@ export class DeliveryService {
     // Cache the result if Redis is available
     if (this.USE_REDIS) {
       try {
-        console.log('[getCarouselAds] STEP 6 - Caching to Redis');
+        console.log('[getCarouselAds] STEP 7 - Caching to Redis');
         if (this.redis && this.redis.isOpen) {
           const cacheTimeout = new Promise<void>((_, reject) =>
             setTimeout(() => reject(new Error('Redis timeout')), 2000)
@@ -146,7 +155,7 @@ export class DeliveryService {
       }
     }
 
-    console.log('[getCarouselAds] STEP 7 - Complete, returning', ads.length, 'ads');
+    console.log('[getCarouselAds] STEP 8 - Complete, returning', ads.length, 'ads');
     return ads;
   }
 
@@ -199,11 +208,14 @@ export class DeliveryService {
     }
 
     // Manual JOIN and filter by user profile
-    const filteredCampaigns = campaigns.filter((campaign: any) =>
-      this.matchesUserProfile(campaign, userProfile)
+    console.log(`[getShortsAds] STEP 5 - Filtering ${(campaigns as any[])?.length} campaigns for user:`, 
+      Object.keys(userProfile).length > 0 ? userProfile : '(no targeting applied)');
+    
+    const filteredCampaigns = (campaigns as any[]).filter((campaign: any) =>
+      this.matchesUserProfile(campaign, userProfile, true)
     );
 
-    console.log('[getShortsAds] STEP 5 - Filtered campaigns, count:', filteredCampaigns.length);
+    console.log('[getShortsAds] STEP 6 - Filtered campaigns, count:', filteredCampaigns.length);
 
     const ads: ShortsAd[] = filteredCampaigns.map(campaign => ({
       id: campaign.id,
@@ -216,7 +228,7 @@ export class DeliveryService {
     // Cache the result if Redis is available
     if (this.USE_REDIS) {
       try {
-        console.log('[getShortsAds] STEP 6 - Caching to Redis');
+        console.log('[getShortsAds] STEP 7 - Caching to Redis');
         if (this.redis && this.redis.isOpen) {
           const cacheTimeout = new Promise<void>((_, reject) =>
             setTimeout(() => reject(new Error('Redis timeout')), 2000)
@@ -230,7 +242,7 @@ export class DeliveryService {
       }
     }
 
-    console.log('[getShortsAds] STEP 7 - Complete, returning', ads.length, 'ads');
+    console.log('[getShortsAds] STEP 8 - Complete, returning', ads.length, 'ads');
     return ads;
   }
 
