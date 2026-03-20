@@ -5,7 +5,7 @@ import { DeliveryController } from './delivery.controller';
 import { DeliveryService } from './delivery.service';
 
 export async function deliveryRoutes(app: FastifyInstance) {
-  const deliveryService = new DeliveryService(app.supabase, app.redis);
+  const deliveryService = new DeliveryService(app.supabase);
   const deliveryController = new DeliveryController(deliveryService);
 
   // GET /ads/carousel

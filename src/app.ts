@@ -4,7 +4,6 @@ import Fastify, { FastifyInstance } from 'fastify'
 import multipart from '@fastify/multipart'
 import cors from '@fastify/cors'
 import { createSupabaseClient } from './config/supabase'
-import { createRedisClient } from './config/redis'
 import { registerRoutes } from './routes'
 
 export const app: FastifyInstance = Fastify({
@@ -32,67 +31,6 @@ app.register(cors, {
  * Décorateurs
  */
 app.decorate('supabase', createSupabaseClient())
-app.decorate('redis', createRedisClient())
-
-/**
- * Connexion Redis non bloquante
- */
-app.addHook('onReady', () => {
-  setImmediate(async () => {
-    try {
-      if (!app.redis) {
-        app.log.warn('Redis is null/disabled (no REDIS_URL set)')
-        return
-      }
-
-      await app.redis.connect()
-      app.log.info('Redis connected')
-    } catch (err) {
-      app.log.warn('Redis unavailable, continuing without cache')
-    }
-  })
-})
-
-/**
- * Hook unique pour tracking + rate limit
- */
-// app.addHook('onRequest', async (request, reply) => {
-//   const start = process.hrtime.bigint()
-//   ;(request as any).startTime = start
-
-//   const redis = app.redis
-
-//   if (!redis?.isOpen) return
-
-//   try {
-//     const ip = request.ip
-//     const key = `rate:${ip}`
-
-//     const now = Date.now()
-//     const windowMs = 60000
-//     const max = 100
-
-//     const requests = await redis.lRange(key, 0, -1)
-
-//     const valid = requests
-//       .map((t) => Number(t))
-//       .filter((t) => now - t < windowMs)
-
-//     if (valid.length >= max) {
-//       return reply.code(429).send({
-//         success: false,
-//         error: 'Too many requests',
-//       })
-//     }
-
-//     await redis.lPush(key, now.toString())
-//     await redis.lTrim(key, 0, max)
-//     await redis.pExpire(key, windowMs)
-
-//   } catch (err) {
-//     app.log.warn('Rate limit skipped')
-//   }
-// })
 
 /**
  * Logging réponse
@@ -114,14 +52,13 @@ app.addHook('onResponse', (request, reply) => {
 })
 
 /**
- * Health check avec timeouts
+ * Health check
  */
 const healthCheck = async () => {
   const result = {
     service: 'ads-service',
     status: 'ok',
     database: 'unknown',
-    redis: 'unknown',
     time: new Date().toISOString(),
   }
 
@@ -139,19 +76,6 @@ const healthCheck = async () => {
     result.database = error ? 'error' : 'connected'
   } catch (err) {
     result.database = 'error'
-  }
-
-  try {
-    if (!app.redis) {
-      result.redis = 'disabled'
-    } else if (app.redis.isOpen) {
-      await app.redis.ping()
-      result.redis = 'connected'
-    } else {
-      result.redis = 'disconnected'
-    }
-  } catch {
-    result.redis = 'error'
   }
 
   return result
@@ -183,6 +107,5 @@ app.setErrorHandler((error, request, reply) => {
 declare module 'fastify' {
   interface FastifyInstance {
     supabase: ReturnType<typeof createSupabaseClient>
-    redis: ReturnType<typeof createRedisClient> | null
   }
 }

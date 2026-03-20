@@ -19,13 +19,9 @@ export interface Campaign {
 }
 
 export class CampaignService {
-  constructor(
-    private supabase: SupabaseClient,
-    private redis?: any // Optional Redis
-  ) {}
+  constructor(private supabase: SupabaseClient) {}
 
   async createCampaign(campaign: Omit<Campaign, 'id' | 'created_at'>): Promise<Campaign> {
-    console.log('Inserting campaign into ads_campaigns:', campaign);
     const { data, error } = await this.supabase
       .from('ads_campaigns')
       .insert(campaign)
@@ -33,14 +29,8 @@ export class CampaignService {
       .single();
 
     if (error) {
-      console.error('Error inserting campaign:', error);
       throw error;
     }
-
-    console.log('Inserted campaign:', data);
-
-    // Invalidate cache
-    await this.invalidateAdCache();
 
     return data;
   }
@@ -90,9 +80,6 @@ export class CampaignService {
 
     if (error) throw error;
 
-    // Invalidate cache
-    await this.invalidateAdCache();
-
     return data;
   }
 
@@ -103,21 +90,5 @@ export class CampaignService {
       .eq('id', id);
 
     if (error) throw error;
-
-    // Invalidate cache
-    await this.invalidateAdCache();
-  }
-
-  private async invalidateAdCache(): Promise<void> {
-    if (!this.redis?.isOpen) return
-
-    try {
-      await Promise.all([
-        this.redis.del('carousel_ads'),
-        this.redis.del('shorts_ads'),
-      ]);
-    } catch (error) {
-      console.warn('Redis cache invalidation failed:', (error as Error).message);
-    }
   }
 }

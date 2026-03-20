@@ -5,7 +5,7 @@ import { CampaignController } from './campaign.controller';
 import { CampaignService } from './campaign.service';
 
 export async function campaignRoutes(app: FastifyInstance) {
-  const campaignService = new CampaignService(app.supabase, app.redis);
+  const campaignService = new CampaignService(app.supabase);
   const campaignController = new CampaignController(campaignService);
 
   // POST /ads/campaign
