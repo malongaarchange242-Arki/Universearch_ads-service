@@ -9,7 +9,6 @@ const fastify_1 = __importDefault(require("fastify"));
 const multipart_1 = __importDefault(require("@fastify/multipart"));
 const cors_1 = __importDefault(require("@fastify/cors"));
 const supabase_1 = require("./config/supabase");
-const redis_1 = require("./config/redis");
 const routes_1 = require("./routes");
 exports.app = (0, fastify_1.default)({
     logger: {
@@ -33,52 +32,6 @@ exports.app.register(cors_1.default, {
  * Décorateurs
  */
 exports.app.decorate('supabase', (0, supabase_1.createSupabaseClient)());
-exports.app.decorate('redis', (0, redis_1.createRedisClient)());
-/**
- * Connexion Redis non bloquante
- */
-exports.app.addHook('onReady', () => {
-    setImmediate(async () => {
-        try {
-            await exports.app.redis.connect();
-            exports.app.log.info('Redis connected');
-        }
-        catch (err) {
-            exports.app.log.warn('Redis unavailable, continuing without cache');
-        }
-    });
-});
-/**
- * Hook unique pour tracking + rate limit
- */
-// app.addHook('onRequest', async (request, reply) => {
-//   const start = process.hrtime.bigint()
-//   ;(request as any).startTime = start
-//   const redis = app.redis
-//   if (!redis?.isOpen) return
-//   try {
-//     const ip = request.ip
-//     const key = `rate:${ip}`
-//     const now = Date.now()
-//     const windowMs = 60000
-//     const max = 100
-//     const requests = await redis.lRange(key, 0, -1)
-//     const valid = requests
-//       .map((t) => Number(t))
-//       .filter((t) => now - t < windowMs)
-//     if (valid.length >= max) {
-//       return reply.code(429).send({
-//         success: false,
-//         error: 'Too many requests',
-//       })
-//     }
-//     await redis.lPush(key, now.toString())
-//     await redis.lTrim(key, 0, max)
-//     await redis.pExpire(key, windowMs)
-//   } catch (err) {
-//     app.log.warn('Rate limit skipped')
-//   }
-// })
 /**
  * Logging réponse
  */
@@ -95,42 +48,37 @@ exports.app.addHook('onResponse', (request, reply) => {
     });
 });
 /**
- * Health check simple
+ * Health check - Instantané (zéro dépendance)
  */
-const healthCheck = async () => {
-    const result = {
+exports.app.get('/health', async () => {
+    return {
         service: 'ads-service',
         status: 'ok',
-        database: 'unknown',
-        redis: 'unknown',
         time: new Date().toISOString(),
     };
+});
+exports.app.post('/health', async () => {
+    return {
+        service: 'ads-service',
+        status: 'ok',
+        time: new Date().toISOString(),
+    };
+});
+/**
+ * Health check détaillé - Pour monitoring (avec DB)
+ */
+exports.app.get('/health/db', async () => {
     try {
-        const { error } = await exports.app.supabase
-            .from('ads_campaigns')
-            .select('id')
-            .limit(1);
-        result.database = error ? 'error' : 'connected';
+        await Promise.race([
+            exports.app.supabase.from('ads_campaigns').select('id').limit(1),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Database timeout')), 5000)),
+        ]);
+        return { database: 'connected' };
     }
     catch {
-        result.database = 'error';
+        return { database: 'error' };
     }
-    try {
-        if (exports.app.redis?.isOpen) {
-            await exports.app.redis.ping();
-            result.redis = 'connected';
-        }
-        else {
-            result.redis = 'disconnected';
-        }
-    }
-    catch {
-        result.redis = 'error';
-    }
-    return result;
-};
-exports.app.get('/health', healthCheck);
-exports.app.post('/health', healthCheck);
+});
 /**
  * Routes
  */

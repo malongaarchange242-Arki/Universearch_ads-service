@@ -3,25 +3,18 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CampaignService = void 0;
 class CampaignService {
-    constructor(supabase, redis // Optional Redis
-    ) {
+    constructor(supabase) {
         this.supabase = supabase;
-        this.redis = redis;
     }
     async createCampaign(campaign) {
-        console.log('Inserting campaign into ads_campaigns:', campaign);
         const { data, error } = await this.supabase
             .from('ads_campaigns')
             .insert(campaign)
             .select()
             .single();
         if (error) {
-            console.error('Error inserting campaign:', error);
             throw error;
         }
-        console.log('Inserted campaign:', data);
-        // Invalidate cache
-        await this.invalidateAdCache();
         return data;
     }
     async getCampaigns(limit = 50, offset = 0) {
@@ -64,8 +57,6 @@ class CampaignService {
             .single();
         if (error)
             throw error;
-        // Invalidate cache
-        await this.invalidateAdCache();
         return data;
     }
     async deleteCampaign(id) {
@@ -75,21 +66,6 @@ class CampaignService {
             .eq('id', id);
         if (error)
             throw error;
-        // Invalidate cache
-        await this.invalidateAdCache();
-    }
-    async invalidateAdCache() {
-        if (!this.redis?.isOpen)
-            return;
-        try {
-            await Promise.all([
-                this.redis.del('carousel_ads'),
-                this.redis.del('shorts_ads'),
-            ]);
-        }
-        catch (error) {
-            console.warn('Redis cache invalidation failed:', error.message);
-        }
     }
 }
 exports.CampaignService = CampaignService;

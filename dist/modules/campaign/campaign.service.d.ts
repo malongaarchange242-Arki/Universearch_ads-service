@@ -16,8 +16,7 @@ export interface Campaign {
 }
 export declare class CampaignService {
     private supabase;
-    private redis?;
-    constructor(supabase: SupabaseClient, redis?: any | undefined);
+    constructor(supabase: SupabaseClient);
     createCampaign(campaign: Omit<Campaign, 'id' | 'created_at'>): Promise<Campaign>;
     getCampaigns(limit?: number, offset?: number): Promise<{
         campaigns: Campaign[];
@@ -26,6 +25,5 @@ export declare class CampaignService {
     getCampaignById(id: string): Promise<Campaign | null>;
     updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign>;
     deleteCampaign(id: string): Promise<void>;
-    private invalidateAdCache;
 }
 //# sourceMappingURL=campaign.service.d.ts.map

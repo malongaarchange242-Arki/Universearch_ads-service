@@ -21,14 +21,20 @@ interface UserProfile {
 }
 export declare class DeliveryService {
     private supabase;
-    private redis;
-    private readonly CACHE_TTL;
-    private readonly USE_REDIS;
-    constructor(supabase: SupabaseClient, redis: any);
+    private readonly SUPABASE_TIMEOUT_MS;
+    constructor(supabase: SupabaseClient);
+    /**
+     * Filtre une campagne en fonction du profil utilisateur
+     */
     private matchesUserProfile;
+    /**
+     * Récupère les annonces pour le carousel
+     */
     getCarouselAds(userProfile?: UserProfile): Promise<CarouselAd[]>;
+    /**
+     * Récupère les annonces pour les shorts
+     */
     getShortsAds(userProfile?: UserProfile): Promise<ShortsAd[]>;
-    invalidateCache(): Promise<void>;
 }
 export {};
 //# sourceMappingURL=delivery.service.d.ts.map

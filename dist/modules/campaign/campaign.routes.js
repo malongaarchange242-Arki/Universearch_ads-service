@@ -5,7 +5,7 @@ exports.campaignRoutes = campaignRoutes;
 const campaign_controller_1 = require("./campaign.controller");
 const campaign_service_1 = require("./campaign.service");
 async function campaignRoutes(app) {
-    const campaignService = new campaign_service_1.CampaignService(app.supabase, app.redis);
+    const campaignService = new campaign_service_1.CampaignService(app.supabase);
     const campaignController = new campaign_controller_1.CampaignController(campaignService);
     // POST /ads/campaign
     app.post('/campaign', campaignController.createCampaign.bind(campaignController));
