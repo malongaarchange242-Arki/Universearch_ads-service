@@ -4,8 +4,11 @@ import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface CarouselAd {
   id: string;
+  campaignId: string;
   title: string;
-  image: string;
+  mediaUrl: string;
+  clickUrl: string;
+  position?: number;
   description?: string;
 }
 
@@ -99,10 +102,13 @@ export class DeliveryService {
       );
 
       // Map to CarouselAd interface
-      const ads: CarouselAd[] = filteredCampaigns.map((campaign) => ({
+      const ads: CarouselAd[] = filteredCampaigns.map((campaign, index) => ({
         id: campaign.id,
+        campaignId: campaign.id,
         title: campaign.title,
-        image: campaign.media_url || '',
+        mediaUrl: campaign.media_url || '',
+        clickUrl: campaign.click_url || '',
+        position: index,
         description: campaign.description,
       }));
 

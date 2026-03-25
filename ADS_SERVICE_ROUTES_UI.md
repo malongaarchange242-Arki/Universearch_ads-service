@@ -3,7 +3,7 @@
 ## Aperçu
 Ces endpoints permettent d'afficher les annonces publicitaires ciblées sur les pages d'accueil et de contenu court de Universearch.
 
-**URL de base :** `http://localhost:3005`
+**URL de base :** 
 
 ---
 
@@ -96,16 +96,7 @@ GET /ads/shorts?limit=10&userId=user123&category=formations
 ```json
 {
   "ads": [
-    {
-      "id": "short-uuid-1",
-      "campaignId": "camp-uuid-3",
-      "title": "Découvrez nos programmes",
-      "description": "Vidéo courte présentant nos formations",
-      "videoUrl": "https://storage.example.com/media/ad-short-1.mp4",
-      "duration": 15,
-      "clickUrl": "https://universearch.com/programs",
-      "thumbnail": "https://storage.example.com/media/ad-short-1-thumb.jpg"
-    },
+    
     {
       "id": "short-uuid-2",
       "campaignId": "camp-uuid-4",
@@ -117,7 +108,7 @@ GET /ads/shorts?limit=10&userId=user123&category=formations
       "thumbnail": "https://storage.example.com/media/ad-short-2-thumb.jpg"
     }
   ],
-  "total": 2
+  "total": 1
 }
 ```
 
