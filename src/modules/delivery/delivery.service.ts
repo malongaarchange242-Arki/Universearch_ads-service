@@ -68,16 +68,18 @@ export class DeliveryService {
   }
 
   /**
-   * Récupère les annonces pour le carousel
+   * Récupère les annonces pour le carousel (limité à 3 APRÈS filtrage)
+   * ✅ CORRECT: FETCH → FILTER → LIMIT
    */
   async getCarouselAds(userProfile: UserProfile = {}): Promise<CarouselAd[]> {
     try {
-      // Query with timeout
+      // 1️⃣ FETCH: Récupérer TOUTES les annonces
       const queryPromise = this.supabase
         .from('ads_campaigns')
         .select('*')
         .eq('status', 'active')
-        .eq('destination', 'carousel');
+        .eq('destination', 'carousel')
+        .order('created_at', { ascending: false }); // Plus récentes d'abord
 
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Supabase timeout')), this.SUPABASE_TIMEOUT_MS)
@@ -96,13 +98,16 @@ export class DeliveryService {
         return [];
       }
 
-      // Filter by user profile
+      // 2️⃣ FILTER: Filtrer selon le profil utilisateur
       const filteredCampaigns = (campaigns as any[]).filter((campaign: any) =>
         this.matchesUserProfile(campaign, userProfile)
       );
 
+      // 3️⃣ LIMIT: Limiter à 3 résultats APRÈS filtrage
+      const limitedCampaigns = filteredCampaigns.slice(0, 3);
+
       // Map to CarouselAd interface
-      const ads: CarouselAd[] = filteredCampaigns.map((campaign, index) => ({
+      const ads: CarouselAd[] = limitedCampaigns.map((campaign, index) => ({
         id: campaign.id,
         campaignId: campaign.id,
         title: campaign.title,
@@ -119,16 +124,18 @@ export class DeliveryService {
   }
 
   /**
-   * Récupère les annonces pour les shorts
+   * Récupère les annonces pour les shorts (limité à 3 APRÈS filtrage)
+   * ✅ CORRECT: FETCH → FILTER → LIMIT
    */
   async getShortsAds(userProfile: UserProfile = {}): Promise<ShortsAd[]> {
     try {
-      // Query with timeout
+      // 1️⃣ FETCH: Récupérer TOUTES les annonces
       const queryPromise = this.supabase
         .from('ads_campaigns')
         .select('*')
         .eq('status', 'active')
-        .eq('destination', 'shorts');
+        .eq('destination', 'shorts')
+        .order('created_at', { ascending: false }); // Plus récentes d'abord
 
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Supabase timeout')), this.SUPABASE_TIMEOUT_MS)
@@ -147,13 +154,16 @@ export class DeliveryService {
         return [];
       }
 
-      // Filter by user profile
+      // 2️⃣ FILTER: Filtrer selon le profil utilisateur
       const filteredCampaigns = (campaigns as any[]).filter((campaign: any) =>
         this.matchesUserProfile(campaign, userProfile)
       );
 
+      // 3️⃣ LIMIT: Limiter à 3 résultats APRÈS filtrage
+      const limitedCampaigns = filteredCampaigns.slice(0, 3);
+
       // Map to ShortsAd interface
-      const ads: ShortsAd[] = filteredCampaigns.map((campaign) => ({
+      const ads: ShortsAd[] = limitedCampaigns.map((campaign) => ({
         id: campaign.id,
         title: campaign.title,
         video: campaign.media_url || '',

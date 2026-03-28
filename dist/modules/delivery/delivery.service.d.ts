@@ -31,11 +31,13 @@ export declare class DeliveryService {
      */
     private matchesUserProfile;
     /**
-     * Récupère les annonces pour le carousel
+     * Récupère les annonces pour le carousel (limité à 3 APRÈS filtrage)
+     * ✅ CORRECT: FETCH → FILTER → LIMIT
      */
     getCarouselAds(userProfile?: UserProfile): Promise<CarouselAd[]>;
     /**
-     * Récupère les annonces pour les shorts
+     * Récupère les annonces pour les shorts (limité à 3 APRÈS filtrage)
+     * ✅ CORRECT: FETCH → FILTER → LIMIT
      */
     getShortsAds(userProfile?: UserProfile): Promise<ShortsAd[]>;
 }
