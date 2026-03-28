@@ -32,7 +32,6 @@ export declare class DeliveryService {
     private matchesUserProfile;
     /**
      * Récupère les annonces pour le carousel
-     * ⚠️ Limité à 3 résultats pour l'affichage mobile
      */
     getCarouselAds(userProfile?: UserProfile): Promise<CarouselAd[]>;
     /**
