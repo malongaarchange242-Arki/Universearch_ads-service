@@ -69,15 +69,18 @@ export class DeliveryService {
 
   /**
    * Récupère les annonces pour le carousel
+   * ⚠️ Limité à 3 résultats pour l'affichage mobile
    */
   async getCarouselAds(userProfile: UserProfile = {}): Promise<CarouselAd[]> {
     try {
-      // Query with timeout
+      // Query with timeout - 🔥 Limit to 3 + order by recent
       const queryPromise = this.supabase
         .from('ads_campaigns')
         .select('*')
         .eq('status', 'active')
-        .eq('destination', 'carousel');
+        .eq('destination', 'carousel')
+        .order('created_at', { ascending: false })
+        .limit(3);
 
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Supabase timeout')), this.SUPABASE_TIMEOUT_MS)
