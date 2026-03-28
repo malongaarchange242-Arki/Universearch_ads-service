@@ -37,7 +37,7 @@ class DeliveryController {
             console.log('[Controller.getCarousel] STEP 2 - Calling service');
             const ads = await this.deliveryService.getCarouselAds(userProfile);
             console.log('[Controller.getCarousel] STEP 3 - Got response, ads count:', ads.length);
-            reply.send({ success: true, data: ads, targetingFiltered: Object.keys(userProfile).length > 0 });
+            reply.send({ ads: ads, targetingFiltered: Object.keys(userProfile).length > 0 });
             console.log('[Controller.getCarousel] STEP 4 - Response sent');
         }
         catch (error) {
@@ -54,7 +54,7 @@ class DeliveryController {
             console.log('[Controller.getShorts] STEP 2 - Calling service');
             const ads = await this.deliveryService.getShortsAds(userProfile);
             console.log('[Controller.getShorts] STEP 3 - Got response, ads count:', ads.length);
-            reply.send({ success: true, data: ads, targetingFiltered: Object.keys(userProfile).length > 0 });
+            reply.send({ ads: ads, targetingFiltered: Object.keys(userProfile).length > 0 });
             console.log('[Controller.getShorts] STEP 4 - Response sent');
         }
         catch (error) {

@@ -287,5 +287,5 @@ export declare const createRedisClient: () => import("@redis/client").RedisClien
         RESERVE: typeof import("@redis/bloom/dist/commands/top-k/RESERVE");
         reserve: typeof import("@redis/bloom/dist/commands/top-k/RESERVE");
     };
-} & import("redis").RedisModules, import("redis").RedisFunctions, import("redis").RedisScripts>;
+} & import("redis").RedisModules, import("redis").RedisFunctions, import("redis").RedisScripts> | null;
 //# sourceMappingURL=redis.d.ts.map

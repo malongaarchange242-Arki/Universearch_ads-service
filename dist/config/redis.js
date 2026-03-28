@@ -4,14 +4,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createRedisClient = void 0;
 const redis_1 = require("redis");
 const createRedisClient = () => {
-    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+    if (!process.env.REDIS_URL || process.env.NODE_ENV === 'production') {
+        console.log('🚫 Redis disabled');
+        return null;
+    }
     const client = (0, redis_1.createClient)({
-        url: redisUrl,
+        url: process.env.REDIS_URL,
     });
-    client.on('error', (err) => {
-        // Suppress Redis connection errors - service works without cache
-    });
-    // Don't connect immediately, let the app handle it
+    client.on('error', () => { });
     return client;
 };
 exports.createRedisClient = createRedisClient;

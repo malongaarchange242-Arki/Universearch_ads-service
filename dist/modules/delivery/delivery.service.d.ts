@@ -1,8 +1,11 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 export interface CarouselAd {
     id: string;
+    campaignId: string;
     title: string;
-    image: string;
+    mediaUrl: string;
+    clickUrl: string;
+    position?: number;
     description?: string;
 }
 export interface ShortsAd {
@@ -29,6 +32,7 @@ export declare class DeliveryService {
     private matchesUserProfile;
     /**
      * Récupère les annonces pour le carousel
+     * ⚠️ Limité à 3 résultats pour l'affichage mobile
      */
     getCarouselAds(userProfile?: UserProfile): Promise<CarouselAd[]>;
     /**

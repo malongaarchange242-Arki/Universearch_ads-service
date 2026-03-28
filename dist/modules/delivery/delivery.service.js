@@ -37,15 +37,18 @@ class DeliveryService {
     }
     /**
      * Récupère les annonces pour le carousel
+     * ⚠️ Limité à 3 résultats pour l'affichage mobile
      */
     async getCarouselAds(userProfile = {}) {
         try {
-            // Query with timeout
+            // Query with timeout - 🔥 Limit to 3 + order by recent
             const queryPromise = this.supabase
                 .from('ads_campaigns')
                 .select('*')
                 .eq('status', 'active')
-                .eq('destination', 'carousel');
+                .eq('destination', 'carousel')
+                .order('created_at', { ascending: false })
+                .limit(3);
             const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), this.SUPABASE_TIMEOUT_MS));
             const { data: campaigns, error } = await Promise.race([
                 queryPromise,
@@ -60,10 +63,13 @@ class DeliveryService {
             // Filter by user profile
             const filteredCampaigns = campaigns.filter((campaign) => this.matchesUserProfile(campaign, userProfile));
             // Map to CarouselAd interface
-            const ads = filteredCampaigns.map((campaign) => ({
+            const ads = filteredCampaigns.map((campaign, index) => ({
                 id: campaign.id,
+                campaignId: campaign.id,
                 title: campaign.title,
-                image: campaign.media_url || '',
+                mediaUrl: campaign.media_url || '',
+                clickUrl: campaign.click_url || '',
+                position: index,
                 description: campaign.description,
             }));
             return ads;
