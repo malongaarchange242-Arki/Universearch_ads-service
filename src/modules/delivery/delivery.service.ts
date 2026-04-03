@@ -34,6 +34,28 @@ export class DeliveryService {
   constructor(private supabase: SupabaseClient) {}
 
   /**
+   * Ignore les placeholders et les URLs non exploitables pour le carousel.
+   */
+  private hasUsableCarouselImage(campaign: any): boolean {
+    const mediaUrl = String(campaign?.media_url || '').trim();
+    const mediaType = String(campaign?.media_type || '').trim().toLowerCase();
+
+    if (!mediaUrl) {
+      return false;
+    }
+
+    if (mediaType && mediaType !== 'image') {
+      return false;
+    }
+
+    if (mediaUrl.includes('via.placeholder.com')) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
    * Filtre une campagne en fonction du profil utilisateur
    */
   private matchesUserProfile(campaign: any, userProfile: UserProfile): boolean {
@@ -98,9 +120,10 @@ export class DeliveryService {
         return [];
       }
 
-      // 2️⃣ FILTER: Filtrer selon le profil utilisateur
+      // 2️⃣ FILTER: Filtrer selon le profil utilisateur et la qualité media
       const filteredCampaigns = (campaigns as any[]).filter((campaign: any) =>
-        this.matchesUserProfile(campaign, userProfile)
+        this.matchesUserProfile(campaign, userProfile) &&
+        this.hasUsableCarouselImage(campaign)
       );
 
       // 3️⃣ LIMIT: Limiter à 3 résultats APRÈS filtrage
