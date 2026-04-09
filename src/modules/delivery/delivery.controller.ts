@@ -14,6 +14,25 @@ interface UserProfile {
 export class DeliveryController {
   constructor(private deliveryService: DeliveryService) {}
 
+  private parseRequestedLimit(query: Record<string, any>): number | null {
+    const all = String(query.all || '').trim().toLowerCase();
+    if (all === '1' || all === 'true' || all === 'yes') {
+      return null;
+    }
+
+    const rawLimit = query.limit;
+    if (rawLimit === undefined || rawLimit === null || rawLimit === '') {
+      return 3;
+    }
+
+    const parsedLimit = parseInt(String(rawLimit), 10);
+    if (!Number.isFinite(parsedLimit) || parsedLimit <= 0) {
+      return 3;
+    }
+
+    return parsedLimit;
+  }
+
   /**
    * Normalise les paramètres de query (supporte plusieurs conventions de nommage)
    * Accepte: userId OU user_id, gender OU user_gender, etc.
@@ -66,11 +85,14 @@ export class DeliveryController {
       console.log('[Controller.getShorts] STEP 1 - Request received', request.url);
       console.log('[Controller.getShorts] Raw query params:', request.query);
 
-      const userProfile = this.parseUserProfile(request.query as Record<string, any>);
+      const rawQuery = request.query as Record<string, any>;
+      const userProfile = this.parseUserProfile(rawQuery);
+      const limit = this.parseRequestedLimit(rawQuery);
       console.log('[Controller.getShorts] Parsed user profile:', userProfile);
+      console.log('[Controller.getShorts] Requested limit:', limit ?? 'all');
 
       console.log('[Controller.getShorts] STEP 2 - Calling service');
-      const ads = await this.deliveryService.getShortsAds(userProfile);
+      const ads = await this.deliveryService.getShortsAds(userProfile, limit);
       
       console.log('[Controller.getShorts] STEP 3 - Got response, ads count:', ads.length);
       reply.send({ ads: ads, targetingFiltered: Object.keys(userProfile).length > 0 });

@@ -25,7 +25,19 @@ CREATE TABLE ads_stats (
   created_at timestamp DEFAULT now()
 );
 
+-- Detailed ad views table
+CREATE TABLE ads_views (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ad_id uuid NOT NULL REFERENCES ads_campaigns(id) ON DELETE CASCADE,
+  user_id uuid,
+  view_duration integer,
+  date_view timestamp DEFAULT now()
+);
+
 -- Indexes for performance
 CREATE INDEX idx_ads_campaigns_status ON ads_campaigns(status);
 CREATE INDEX idx_ads_campaigns_destination ON ads_campaigns(destination);
 CREATE INDEX idx_ads_stats_ad_id ON ads_stats(ad_id);
+CREATE INDEX idx_ads_views_ad_id ON ads_views(ad_id);
+CREATE INDEX idx_ads_views_user_id ON ads_views(user_id);
+CREATE INDEX idx_ads_views_date_view ON ads_views(date_view DESC);

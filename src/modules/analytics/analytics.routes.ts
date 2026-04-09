@@ -17,6 +17,9 @@ export async function analyticsRoutes(app: FastifyInstance) {
   // POST /ads/view
   app.post('/view', analyticsController.recordView.bind(analyticsController));
 
+  // GET /ads/views/:adId
+  app.get('/views/:adId', analyticsController.getViews.bind(analyticsController));
+
   // GET /ads/stats/:campaignId
   app.get('/stats/:campaignId', analyticsController.getStats.bind(analyticsController));
 }

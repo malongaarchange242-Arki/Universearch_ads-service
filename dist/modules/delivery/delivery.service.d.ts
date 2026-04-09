@@ -14,6 +14,7 @@ export interface ShortsAd {
     thumbnail: string;
     title: string;
     description?: string;
+    views_count?: number;
 }
 interface UserProfile {
     gender?: string;
@@ -26,6 +27,12 @@ export declare class DeliveryService {
     private supabase;
     private readonly SUPABASE_TIMEOUT_MS;
     constructor(supabase: SupabaseClient);
+    private applyLimit;
+    private getAdViewsCount;
+    /**
+     * Ignore les placeholders et les URLs non exploitables pour le carousel.
+     */
+    private hasUsableCarouselImage;
     /**
      * Filtre une campagne en fonction du profil utilisateur
      */
@@ -39,7 +46,7 @@ export declare class DeliveryService {
      * Récupère les annonces pour les shorts (limité à 3 APRÈS filtrage)
      * ✅ CORRECT: FETCH → FILTER → LIMIT
      */
-    getShortsAds(userProfile?: UserProfile): Promise<ShortsAd[]>;
+    getShortsAds(userProfile?: UserProfile, limit?: number | null): Promise<ShortsAd[]>;
 }
 export {};
 //# sourceMappingURL=delivery.service.d.ts.map

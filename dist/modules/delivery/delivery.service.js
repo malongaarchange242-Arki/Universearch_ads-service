@@ -7,6 +7,46 @@ class DeliveryService {
         this.supabase = supabase;
         this.SUPABASE_TIMEOUT_MS = 5000; // 5 seconds timeout
     }
+    applyLimit(items, limit) {
+        if (typeof limit !== 'number' || !Number.isFinite(limit) || limit <= 0) {
+            return items;
+        }
+        return items.slice(0, limit);
+    }
+    async getAdViewsCount(adId) {
+        try {
+            const { count, error } = await this.supabase
+                .from('ads_views')
+                .select('id', { count: 'exact', head: true })
+                .eq('ad_id', adId);
+            if (error) {
+                console.warn(`Failed to fetch ad views count for ${adId}: ${error.message}`);
+                return 0;
+            }
+            return count || 0;
+        }
+        catch (error) {
+            console.warn(`Failed to fetch ad views count for ${adId}: ${error.message}`);
+            return 0;
+        }
+    }
+    /**
+     * Ignore les placeholders et les URLs non exploitables pour le carousel.
+     */
+    hasUsableCarouselImage(campaign) {
+        const mediaUrl = String(campaign?.media_url || '').trim();
+        const mediaType = String(campaign?.media_type || '').trim().toLowerCase();
+        if (!mediaUrl) {
+            return false;
+        }
+        if (mediaType && mediaType !== 'image') {
+            return false;
+        }
+        if (mediaUrl.includes('via.placeholder.com')) {
+            return false;
+        }
+        return true;
+    }
     /**
      * Filtre une campagne en fonction du profil utilisateur
      */
@@ -59,8 +99,9 @@ class DeliveryService {
             if (!campaigns || campaigns.length === 0) {
                 return [];
             }
-            // 2️⃣ FILTER: Filtrer selon le profil utilisateur
-            const filteredCampaigns = campaigns.filter((campaign) => this.matchesUserProfile(campaign, userProfile));
+            // 2️⃣ FILTER: Filtrer selon le profil utilisateur et la qualité media
+            const filteredCampaigns = campaigns.filter((campaign) => this.matchesUserProfile(campaign, userProfile) &&
+                this.hasUsableCarouselImage(campaign));
             // 3️⃣ LIMIT: Limiter à 3 résultats APRÈS filtrage
             const limitedCampaigns = filteredCampaigns.slice(0, 3);
             // Map to CarouselAd interface
@@ -83,7 +124,7 @@ class DeliveryService {
      * Récupère les annonces pour les shorts (limité à 3 APRÈS filtrage)
      * ✅ CORRECT: FETCH → FILTER → LIMIT
      */
-    async getShortsAds(userProfile = {}) {
+    async getShortsAds(userProfile = {}, limit = 3) {
         try {
             // 1️⃣ FETCH: Récupérer TOUTES les annonces
             const queryPromise = this.supabase
@@ -106,16 +147,17 @@ class DeliveryService {
             // 2️⃣ FILTER: Filtrer selon le profil utilisateur
             const filteredCampaigns = campaigns.filter((campaign) => this.matchesUserProfile(campaign, userProfile));
             // 3️⃣ LIMIT: Limiter à 3 résultats APRÈS filtrage
-            const limitedCampaigns = filteredCampaigns.slice(0, 3);
+            const limitedCampaigns = this.applyLimit(filteredCampaigns, limit);
             // Map to ShortsAd interface
-            const ads = limitedCampaigns.map((campaign) => ({
+            const ads = await Promise.all(limitedCampaigns.map(async (campaign) => ({
                 id: campaign.id,
                 title: campaign.title,
                 video: campaign.media_url || '',
                 thumbnail: campaign.thumbnail_url ||
                     `https://via.placeholder.com/300x200?text=${encodeURIComponent(campaign.title)}`,
                 description: campaign.description,
-            }));
+                views_count: await this.getAdViewsCount(campaign.id),
+            })));
             return ads;
         }
         catch (error) {

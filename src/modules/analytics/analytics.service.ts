@@ -1,6 +1,7 @@
 // src/modules/analytics/analytics.service.ts
 
 import { SupabaseClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 
 export interface AdStats {
   id: string;
@@ -9,6 +10,19 @@ export interface AdStats {
   clicks: number;
   views: number;
   created_at: string;
+}
+
+export interface AdViewPayload {
+  view_duration?: number | null;
+  user_id?: string | null;
+}
+
+export interface AdView {
+  id: string;
+  ad_id: string;
+  user_id: string | null;
+  view_duration: number | null;
+  date_view: string;
 }
 
 export class AnalyticsService {
@@ -22,8 +36,31 @@ export class AnalyticsService {
     await this.incrementStat(adId, 'clicks');
   }
 
-  async recordView(adId: string): Promise<void> {
+  async recordView(adId: string, payload: AdViewPayload = {}): Promise<AdView> {
+    await this.ensureCampaignExists(adId);
     await this.incrementStat(adId, 'views');
+
+    const now = new Date().toISOString();
+    const normalizedDuration =
+      typeof payload.view_duration === 'number' && Number.isFinite(payload.view_duration)
+        ? Math.max(0, Math.round(payload.view_duration))
+        : 3;
+
+    const { data, error } = await this.supabase
+      .from('ads_views')
+      .insert({
+        id: randomUUID(),
+        ad_id: adId,
+        user_id: payload.user_id ?? null,
+        view_duration: normalizedDuration,
+        date_view: now,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return data as AdView;
   }
 
   private async incrementStat(adId: string, statType: 'impressions' | 'clicks' | 'views'): Promise<void> {
@@ -88,5 +125,41 @@ export class AnalyticsService {
       }),
       { impressions: 0, clicks: 0, views: 0 }
     );
+  }
+
+  async getViews(adId: string, limit: number = 20, page: number = 1): Promise<{
+    data: AdView[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const offset = (page - 1) * limit;
+
+    const { data, error, count } = await this.supabase
+      .from('ads_views')
+      .select('*', { count: 'exact' })
+      .eq('ad_id', adId)
+      .order('date_view', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+
+    return {
+      data: (data || []) as AdView[],
+      total: count || 0,
+      page,
+      limit,
+    };
+  }
+
+  private async ensureCampaignExists(adId: string): Promise<void> {
+    const { data, error } = await this.supabase
+      .from('ads_campaigns')
+      .select('id')
+      .eq('id', adId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('Ad campaign not found');
   }
 }

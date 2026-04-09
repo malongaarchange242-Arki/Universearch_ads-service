@@ -18,6 +18,7 @@ export interface ShortsAd {
   thumbnail: string;
   title: string;
   description?: string;
+  views_count?: number;
 }
 
 interface UserProfile {
@@ -32,6 +33,33 @@ export class DeliveryService {
   private readonly SUPABASE_TIMEOUT_MS = 5000; // 5 seconds timeout
 
   constructor(private supabase: SupabaseClient) {}
+
+  private applyLimit<T>(items: T[], limit?: number | null): T[] {
+    if (typeof limit !== 'number' || !Number.isFinite(limit) || limit <= 0) {
+      return items;
+    }
+
+    return items.slice(0, limit);
+  }
+
+  private async getAdViewsCount(adId: string): Promise<number> {
+    try {
+      const { count, error } = await this.supabase
+        .from('ads_views')
+        .select('id', { count: 'exact', head: true })
+        .eq('ad_id', adId);
+
+      if (error) {
+        console.warn(`Failed to fetch ad views count for ${adId}: ${error.message}`);
+        return 0;
+      }
+
+      return count || 0;
+    } catch (error) {
+      console.warn(`Failed to fetch ad views count for ${adId}: ${(error as Error).message}`);
+      return 0;
+    }
+  }
 
   /**
    * Ignore les placeholders et les URLs non exploitables pour le carousel.
@@ -150,7 +178,10 @@ export class DeliveryService {
    * Récupère les annonces pour les shorts (limité à 3 APRÈS filtrage)
    * ✅ CORRECT: FETCH → FILTER → LIMIT
    */
-  async getShortsAds(userProfile: UserProfile = {}): Promise<ShortsAd[]> {
+  async getShortsAds(
+    userProfile: UserProfile = {},
+    limit: number | null = 3
+  ): Promise<ShortsAd[]> {
     try {
       // 1️⃣ FETCH: Récupérer TOUTES les annonces
       const queryPromise = this.supabase
@@ -183,18 +214,21 @@ export class DeliveryService {
       );
 
       // 3️⃣ LIMIT: Limiter à 3 résultats APRÈS filtrage
-      const limitedCampaigns = filteredCampaigns.slice(0, 3);
+      const limitedCampaigns = this.applyLimit(filteredCampaigns, limit);
 
       // Map to ShortsAd interface
-      const ads: ShortsAd[] = limitedCampaigns.map((campaign) => ({
-        id: campaign.id,
-        title: campaign.title,
-        video: campaign.media_url || '',
-        thumbnail:
-          campaign.thumbnail_url ||
-          `https://via.placeholder.com/300x200?text=${encodeURIComponent(campaign.title)}`,
-        description: campaign.description,
-      }));
+      const ads: ShortsAd[] = await Promise.all(
+        limitedCampaigns.map(async (campaign) => ({
+          id: campaign.id,
+          title: campaign.title,
+          video: campaign.media_url || '',
+          thumbnail:
+            campaign.thumbnail_url ||
+            `https://via.placeholder.com/300x200?text=${encodeURIComponent(campaign.title)}`,
+          description: campaign.description,
+          views_count: await this.getAdViewsCount(campaign.id),
+        }))
+      );
 
       return ads;
     } catch (error) {

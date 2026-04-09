@@ -2,6 +2,7 @@
 // src/modules/analytics/analytics.service.ts
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AnalyticsService = void 0;
+const crypto_1 = require("crypto");
 class AnalyticsService {
     constructor(supabase) {
         this.supabase = supabase;
@@ -12,8 +13,27 @@ class AnalyticsService {
     async recordClick(adId) {
         await this.incrementStat(adId, 'clicks');
     }
-    async recordView(adId) {
+    async recordView(adId, payload = {}) {
+        await this.ensureCampaignExists(adId);
         await this.incrementStat(adId, 'views');
+        const now = new Date().toISOString();
+        const normalizedDuration = typeof payload.view_duration === 'number' && Number.isFinite(payload.view_duration)
+            ? Math.max(0, Math.round(payload.view_duration))
+            : 3;
+        const { data, error } = await this.supabase
+            .from('ads_views')
+            .insert({
+            id: (0, crypto_1.randomUUID)(),
+            ad_id: adId,
+            user_id: payload.user_id ?? null,
+            view_duration: normalizedDuration,
+            date_view: now,
+        })
+            .select()
+            .single();
+        if (error)
+            throw error;
+        return data;
     }
     async incrementStat(adId, statType) {
         // First, try to find existing stats for today
@@ -70,6 +90,34 @@ class AnalyticsService {
             clicks: acc.clicks + stat.clicks,
             views: acc.views + stat.views,
         }), { impressions: 0, clicks: 0, views: 0 });
+    }
+    async getViews(adId, limit = 20, page = 1) {
+        const offset = (page - 1) * limit;
+        const { data, error, count } = await this.supabase
+            .from('ads_views')
+            .select('*', { count: 'exact' })
+            .eq('ad_id', adId)
+            .order('date_view', { ascending: false })
+            .range(offset, offset + limit - 1);
+        if (error)
+            throw error;
+        return {
+            data: (data || []),
+            total: count || 0,
+            page,
+            limit,
+        };
+    }
+    async ensureCampaignExists(adId) {
+        const { data, error } = await this.supabase
+            .from('ads_campaigns')
+            .select('id')
+            .eq('id', adId)
+            .maybeSingle();
+        if (error)
+            throw error;
+        if (!data)
+            throw new Error('Ad campaign not found');
     }
 }
 exports.AnalyticsService = AnalyticsService;
