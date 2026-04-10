@@ -90,30 +90,36 @@ export class DeliveryService {
     // Check specific user targeting first
     if (campaign.target_users && Array.isArray(campaign.target_users) && campaign.target_users.length > 0) {
       if (!userProfile.user_id || !campaign.target_users.includes(userProfile.user_id)) {
+        console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: specific user targeting mismatch`);
         return false;
       }
     }
 
     // Gender matching
     if (campaign.target_gender && campaign.target_gender !== userProfile.gender) {
+      console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: gender mismatch (ad="${campaign.target_gender}", user="${userProfile.gender}")`);
       return false;
     }
 
     // User type matching (bachelier / etudiant / parent)
     if (campaign.target_user_type && campaign.target_user_type !== userProfile.user_type) {
+      console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: user_type mismatch (ad="${campaign.target_user_type}", user="${userProfile.user_type}")`);
       return false;
     }
 
     // Age matching
     if (campaign.min_age && userProfile.age && userProfile.age < campaign.min_age) {
+      console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: age mismatch (min_age=${campaign.min_age}, user_age=${userProfile.age})`);
       return false;
     }
 
     // Location matching
     if (campaign.location && campaign.location !== userProfile.location) {
+      console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: location mismatch`);
       return false;
     }
 
+    console.log(`[matchesUserProfile] Ad ${campaign.id} PASSED filtering`);
     return true;
   }
 
@@ -149,10 +155,15 @@ export class DeliveryService {
       }
 
       // 2️⃣ FILTER: Filtrer selon le profil utilisateur et la qualité media
+      console.log(`[getCarouselAds] Total ads fetched: ${campaigns.length}`);
+      console.log(`[getCarouselAds] User profile for filtering:`, userProfile);
+      
       const filteredCampaigns = (campaigns as any[]).filter((campaign: any) =>
         this.matchesUserProfile(campaign, userProfile) &&
         this.hasUsableCarouselImage(campaign)
       );
+      
+      console.log(`[getCarouselAds] Ads after filtering: ${filteredCampaigns.length}`);
 
       // 3️⃣ LIMIT: Limiter à 3 résultats APRÈS filtrage
       const limitedCampaigns = filteredCampaigns.slice(0, 3);
@@ -209,9 +220,14 @@ export class DeliveryService {
       }
 
       // 2️⃣ FILTER: Filtrer selon le profil utilisateur
+      console.log(`[getShortsAds] Total ads fetched: ${campaigns.length}`);
+      console.log(`[getShortsAds] User profile for filtering:`, userProfile);
+      
       const filteredCampaigns = (campaigns as any[]).filter((campaign: any) =>
         this.matchesUserProfile(campaign, userProfile)
       );
+      
+      console.log(`[getShortsAds] Ads after filtering: ${filteredCampaigns.length}, requested limit: ${limit}`);
 
       // 3️⃣ LIMIT: Limiter à 3 résultats APRÈS filtrage
       const limitedCampaigns = this.applyLimit(filteredCampaigns, limit);
