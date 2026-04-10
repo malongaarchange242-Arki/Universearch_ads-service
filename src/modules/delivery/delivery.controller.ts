@@ -45,9 +45,25 @@ export class DeliveryController {
     const location = query.location || query.user_location;
     const age = query.user_age || query.age;
 
+    // Helper: Normaliser le gender (français → anglais)
+    const normalizeGender = (value?: string): string | undefined => {
+      if (!value) return undefined;
+      const normalized = value.trim().toLowerCase();
+      // Mapper français vers anglais (comme en base de données)
+      const genderMap: Record<string, string> = {
+        'homme': 'men',
+        'femme': 'women',
+        'male': 'men',
+        'female': 'women',
+        'men': 'men',
+        'women': 'women',
+      };
+      return genderMap[normalized] || normalized;
+    };
+
     // Construire l'objet utilisateur avec contrôle de types
     const userProfile: UserProfile = {
-      gender: gender ? String(gender).trim() || undefined : undefined,
+      gender: normalizeGender(gender),
       user_type: user_type ? String(user_type).trim() || undefined : undefined,
       user_id: user_id ? String(user_id).trim() || undefined : undefined,
       location: location ? String(location).trim() || undefined : undefined,
@@ -67,6 +83,7 @@ export class DeliveryController {
 
       const userProfile = this.parseUserProfile(request.query as Record<string, any>);
       console.log('[Controller.getCarousel] Parsed user profile:', userProfile);
+      console.log('[Controller.getCarousel] Gender after normalization:', userProfile.gender || 'none');
 
       console.log('[Controller.getCarousel] STEP 2 - Calling service');
       const ads = await this.deliveryService.getCarouselAds(userProfile);
@@ -89,6 +106,7 @@ export class DeliveryController {
       const userProfile = this.parseUserProfile(rawQuery);
       const limit = this.parseRequestedLimit(rawQuery);
       console.log('[Controller.getShorts] Parsed user profile:', userProfile);
+      console.log('[Controller.getShorts] Gender after normalization:', userProfile.gender || 'none');
       console.log('[Controller.getShorts] Requested limit:', limit ?? 'all');
 
       console.log('[Controller.getShorts] STEP 2 - Calling service');

@@ -32,9 +32,25 @@ class DeliveryController {
         const user_id = query.user_id || query.userId;
         const location = query.location || query.user_location;
         const age = query.user_age || query.age;
+        // Helper: Normaliser le gender (français → anglais)
+        const normalizeGender = (value) => {
+            if (!value)
+                return undefined;
+            const normalized = value.trim().toLowerCase();
+            // Mapper français vers anglais (comme en base de données)
+            const genderMap = {
+                'homme': 'men',
+                'femme': 'women',
+                'male': 'men',
+                'female': 'women',
+                'men': 'men',
+                'women': 'women',
+            };
+            return genderMap[normalized] || normalized;
+        };
         // Construire l'objet utilisateur avec contrôle de types
         const userProfile = {
-            gender: gender ? String(gender).trim() || undefined : undefined,
+            gender: normalizeGender(gender),
             user_type: user_type ? String(user_type).trim() || undefined : undefined,
             user_id: user_id ? String(user_id).trim() || undefined : undefined,
             location: location ? String(location).trim() || undefined : undefined,
@@ -49,6 +65,7 @@ class DeliveryController {
             console.log('[Controller.getCarousel] Raw query params:', request.query);
             const userProfile = this.parseUserProfile(request.query);
             console.log('[Controller.getCarousel] Parsed user profile:', userProfile);
+            console.log('[Controller.getCarousel] Gender after normalization:', userProfile.gender || 'none');
             console.log('[Controller.getCarousel] STEP 2 - Calling service');
             const ads = await this.deliveryService.getCarouselAds(userProfile);
             console.log('[Controller.getCarousel] STEP 3 - Got response, ads count:', ads.length);
@@ -68,6 +85,7 @@ class DeliveryController {
             const userProfile = this.parseUserProfile(rawQuery);
             const limit = this.parseRequestedLimit(rawQuery);
             console.log('[Controller.getShorts] Parsed user profile:', userProfile);
+            console.log('[Controller.getShorts] Gender after normalization:', userProfile.gender || 'none');
             console.log('[Controller.getShorts] Requested limit:', limit ?? 'all');
             console.log('[Controller.getShorts] STEP 2 - Calling service');
             const ads = await this.deliveryService.getShortsAds(userProfile, limit);
