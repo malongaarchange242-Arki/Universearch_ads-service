@@ -32,6 +32,7 @@ interface UserProfile {
 interface StoredProfileRow {
   profile_type?: string | null;
   genre?: string | null;
+  date_naissance?: string | null;
 }
 
 interface StoredUserRow {
@@ -74,6 +75,32 @@ export class DeliveryService {
     return normalized || undefined;
   }
 
+  private calculateAge(dateNaissance?: string | null): number | undefined {
+    if (!dateNaissance) return undefined;
+
+    const birthDate = new Date(dateNaissance);
+    if (Number.isNaN(birthDate.getTime())) {
+      return undefined;
+    }
+
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDelta = today.getMonth() - birthDate.getMonth();
+
+    if (
+      monthDelta < 0 ||
+      (monthDelta === 0 && today.getDate() < birthDate.getDate())
+    ) {
+      age--;
+    }
+
+    if (age < 0 || age > 120) {
+      return undefined;
+    }
+
+    return age;
+  }
+
   private sanitizeUserProfile(userProfile: UserProfile): UserProfile {
     return Object.fromEntries(
       Object.entries(userProfile).filter(
@@ -83,7 +110,7 @@ export class DeliveryService {
   }
 
   private async enrichUserProfile(userProfile: UserProfile): Promise<UserProfile> {
-    if (!userProfile.user_id || userProfile.user_type) {
+    if (!userProfile.user_id) {
       return this.sanitizeUserProfile(userProfile);
     }
 
@@ -92,7 +119,7 @@ export class DeliveryService {
     try {
       const { data: profileData, error: profileError } = await this.supabase
         .from('profiles')
-        .select('profile_type, genre')
+        .select('profile_type, genre, date_naissance')
         .eq('id', userProfile.user_id)
         .maybeSingle<StoredProfileRow>();
 
@@ -107,7 +134,11 @@ export class DeliveryService {
         enrichedProfile.gender = this.normalizeGender(profileData?.genre);
       }
 
-      if (profileData?.profile_type === 'utilisateur') {
+      if (typeof enrichedProfile.age !== 'number') {
+        enrichedProfile.age = this.calculateAge(profileData?.date_naissance);
+      }
+
+      if (!enrichedProfile.user_type && profileData?.profile_type === 'utilisateur') {
         const { data: userData, error: userError } = await this.supabase
           .from('utilisateurs')
           .select('user_type')
@@ -200,9 +231,20 @@ export class DeliveryService {
     }
 
     // Age matching
-    if (campaign.min_age && userProfile.age && userProfile.age < campaign.min_age) {
-      console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: age mismatch (min_age=${campaign.min_age}, user_age=${userProfile.age})`);
-      return false;
+    if (campaign.min_age) {
+      if (typeof userProfile.age !== 'number' || !Number.isFinite(userProfile.age)) {
+        console.log(
+          `[matchesUserProfile] Ad ${campaign.id} filtered: missing user age for min_age=${campaign.min_age}`
+        );
+        return false;
+      }
+
+      if (userProfile.age < campaign.min_age) {
+        console.log(
+          `[matchesUserProfile] Ad ${campaign.id} filtered: age mismatch (min_age=${campaign.min_age}, user_age=${userProfile.age})`
+        );
+        return false;
+      }
     }
 
     // Location matching

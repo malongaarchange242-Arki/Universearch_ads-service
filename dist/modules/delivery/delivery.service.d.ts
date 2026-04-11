@@ -30,6 +30,7 @@ export declare class DeliveryService {
     private applyLimit;
     private normalizeGender;
     private normalizeUserType;
+    private calculateAge;
     private sanitizeUserProfile;
     private enrichUserProfile;
     private getAdViewsCount;
