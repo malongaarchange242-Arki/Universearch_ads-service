@@ -28,6 +28,10 @@ export declare class DeliveryService {
     private readonly SUPABASE_TIMEOUT_MS;
     constructor(supabase: SupabaseClient);
     private applyLimit;
+    private normalizeGender;
+    private normalizeUserType;
+    private sanitizeUserProfile;
+    private enrichUserProfile;
     private getAdViewsCount;
     /**
      * Ignore les placeholders et les URLs non exploitables pour le carousel.

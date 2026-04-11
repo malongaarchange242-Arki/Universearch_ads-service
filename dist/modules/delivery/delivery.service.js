@@ -13,6 +13,65 @@ class DeliveryService {
         }
         return items.slice(0, limit);
     }
+    normalizeGender(value) {
+        if (!value)
+            return undefined;
+        const normalized = String(value).trim().toLowerCase();
+        const genderMap = {
+            homme: 'men',
+            femme: 'women',
+            male: 'men',
+            female: 'women',
+            men: 'men',
+            women: 'women',
+        };
+        return genderMap[normalized] || normalized;
+    }
+    normalizeUserType(value) {
+        if (!value)
+            return undefined;
+        const normalized = String(value).trim().toLowerCase();
+        return normalized || undefined;
+    }
+    sanitizeUserProfile(userProfile) {
+        return Object.fromEntries(Object.entries(userProfile).filter(([, value]) => value !== undefined && value !== null && value !== ''));
+    }
+    async enrichUserProfile(userProfile) {
+        if (!userProfile.user_id || userProfile.user_type) {
+            return this.sanitizeUserProfile(userProfile);
+        }
+        const enrichedProfile = { ...userProfile };
+        try {
+            const { data: profileData, error: profileError } = await this.supabase
+                .from('profiles')
+                .select('profile_type, genre')
+                .eq('id', userProfile.user_id)
+                .maybeSingle();
+            if (profileError) {
+                console.warn(`[enrichUserProfile] Failed to fetch profile ${userProfile.user_id}: ${profileError.message}`);
+                return this.sanitizeUserProfile(enrichedProfile);
+            }
+            if (!enrichedProfile.gender) {
+                enrichedProfile.gender = this.normalizeGender(profileData?.genre);
+            }
+            if (profileData?.profile_type === 'utilisateur') {
+                const { data: userData, error: userError } = await this.supabase
+                    .from('utilisateurs')
+                    .select('user_type')
+                    .eq('id', userProfile.user_id)
+                    .maybeSingle();
+                if (userError) {
+                    console.warn(`[enrichUserProfile] Failed to fetch user_type ${userProfile.user_id}: ${userError.message}`);
+                    return this.sanitizeUserProfile(enrichedProfile);
+                }
+                enrichedProfile.user_type = this.normalizeUserType(userData?.user_type);
+            }
+        }
+        catch (error) {
+            console.warn(`[enrichUserProfile] Unexpected enrichment error for ${userProfile.user_id}: ${error.message}`);
+        }
+        return this.sanitizeUserProfile(enrichedProfile);
+    }
     async getAdViewsCount(adId) {
         try {
             const { count, error } = await this.supabase
@@ -87,6 +146,7 @@ class DeliveryService {
      */
     async getCarouselAds(userProfile = {}) {
         try {
+            const resolvedUserProfile = await this.enrichUserProfile(userProfile);
             // 1️⃣ FETCH: Récupérer TOUTES les annonces
             const queryPromise = this.supabase
                 .from('ads_campaigns')
@@ -107,8 +167,8 @@ class DeliveryService {
             }
             // 2️⃣ FILTER: Filtrer selon le profil utilisateur et la qualité media
             console.log(`[getCarouselAds] Total ads fetched: ${campaigns.length}`);
-            console.log(`[getCarouselAds] User profile for filtering:`, userProfile);
-            const filteredCampaigns = campaigns.filter((campaign) => this.matchesUserProfile(campaign, userProfile) &&
+            console.log(`[getCarouselAds] User profile for filtering:`, resolvedUserProfile);
+            const filteredCampaigns = campaigns.filter((campaign) => this.matchesUserProfile(campaign, resolvedUserProfile) &&
                 this.hasUsableCarouselImage(campaign));
             console.log(`[getCarouselAds] Ads after filtering: ${filteredCampaigns.length}`);
             // 3️⃣ LIMIT: Limiter à 3 résultats APRÈS filtrage
@@ -135,6 +195,7 @@ class DeliveryService {
      */
     async getShortsAds(userProfile = {}, limit = 3) {
         try {
+            const resolvedUserProfile = await this.enrichUserProfile(userProfile);
             // 1️⃣ FETCH: Récupérer TOUTES les annonces
             const queryPromise = this.supabase
                 .from('ads_campaigns')
@@ -155,8 +216,8 @@ class DeliveryService {
             }
             // 2️⃣ FILTER: Filtrer selon le profil utilisateur
             console.log(`[getShortsAds] Total ads fetched: ${campaigns.length}`);
-            console.log(`[getShortsAds] User profile for filtering:`, userProfile);
-            const filteredCampaigns = campaigns.filter((campaign) => this.matchesUserProfile(campaign, userProfile));
+            console.log(`[getShortsAds] User profile for filtering:`, resolvedUserProfile);
+            const filteredCampaigns = campaigns.filter((campaign) => this.matchesUserProfile(campaign, resolvedUserProfile));
             console.log(`[getShortsAds] Ads after filtering: ${filteredCampaigns.length}, requested limit: ${limit}`);
             // 3️⃣ LIMIT: Limiter à 3 résultats APRÈS filtrage
             const limitedCampaigns = this.applyLimit(filteredCampaigns, limit);

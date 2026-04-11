@@ -29,6 +29,15 @@ interface UserProfile {
   location?: string;
 }
 
+interface StoredProfileRow {
+  profile_type?: string | null;
+  genre?: string | null;
+}
+
+interface StoredUserRow {
+  user_type?: string | null;
+}
+
 export class DeliveryService {
   private readonly SUPABASE_TIMEOUT_MS = 5000; // 5 seconds timeout
 
@@ -40,6 +49,89 @@ export class DeliveryService {
     }
 
     return items.slice(0, limit);
+  }
+
+  private normalizeGender(value?: string | null): string | undefined {
+    if (!value) return undefined;
+
+    const normalized = String(value).trim().toLowerCase();
+    const genderMap: Record<string, string> = {
+      homme: 'men',
+      femme: 'women',
+      male: 'men',
+      female: 'women',
+      men: 'men',
+      women: 'women',
+    };
+
+    return genderMap[normalized] || normalized;
+  }
+
+  private normalizeUserType(value?: string | null): string | undefined {
+    if (!value) return undefined;
+
+    const normalized = String(value).trim().toLowerCase();
+    return normalized || undefined;
+  }
+
+  private sanitizeUserProfile(userProfile: UserProfile): UserProfile {
+    return Object.fromEntries(
+      Object.entries(userProfile).filter(
+        ([, value]) => value !== undefined && value !== null && value !== ''
+      )
+    ) as UserProfile;
+  }
+
+  private async enrichUserProfile(userProfile: UserProfile): Promise<UserProfile> {
+    if (!userProfile.user_id || userProfile.user_type) {
+      return this.sanitizeUserProfile(userProfile);
+    }
+
+    const enrichedProfile: UserProfile = { ...userProfile };
+
+    try {
+      const { data: profileData, error: profileError } = await this.supabase
+        .from('profiles')
+        .select('profile_type, genre')
+        .eq('id', userProfile.user_id)
+        .maybeSingle<StoredProfileRow>();
+
+      if (profileError) {
+        console.warn(
+          `[enrichUserProfile] Failed to fetch profile ${userProfile.user_id}: ${profileError.message}`
+        );
+        return this.sanitizeUserProfile(enrichedProfile);
+      }
+
+      if (!enrichedProfile.gender) {
+        enrichedProfile.gender = this.normalizeGender(profileData?.genre);
+      }
+
+      if (profileData?.profile_type === 'utilisateur') {
+        const { data: userData, error: userError } = await this.supabase
+          .from('utilisateurs')
+          .select('user_type')
+          .eq('id', userProfile.user_id)
+          .maybeSingle<StoredUserRow>();
+
+        if (userError) {
+          console.warn(
+            `[enrichUserProfile] Failed to fetch user_type ${userProfile.user_id}: ${userError.message}`
+          );
+          return this.sanitizeUserProfile(enrichedProfile);
+        }
+
+        enrichedProfile.user_type = this.normalizeUserType(userData?.user_type);
+      }
+    } catch (error) {
+      console.warn(
+        `[enrichUserProfile] Unexpected enrichment error for ${userProfile.user_id}: ${
+          (error as Error).message
+        }`
+      );
+    }
+
+    return this.sanitizeUserProfile(enrichedProfile);
   }
 
   private async getAdViewsCount(adId: string): Promise<number> {
@@ -129,6 +221,8 @@ export class DeliveryService {
    */
   async getCarouselAds(userProfile: UserProfile = {}): Promise<CarouselAd[]> {
     try {
+      const resolvedUserProfile = await this.enrichUserProfile(userProfile);
+
       // 1️⃣ FETCH: Récupérer TOUTES les annonces
       const queryPromise = this.supabase
         .from('ads_campaigns')
@@ -156,10 +250,10 @@ export class DeliveryService {
 
       // 2️⃣ FILTER: Filtrer selon le profil utilisateur et la qualité media
       console.log(`[getCarouselAds] Total ads fetched: ${campaigns.length}`);
-      console.log(`[getCarouselAds] User profile for filtering:`, userProfile);
+      console.log(`[getCarouselAds] User profile for filtering:`, resolvedUserProfile);
       
       const filteredCampaigns = (campaigns as any[]).filter((campaign: any) =>
-        this.matchesUserProfile(campaign, userProfile) &&
+        this.matchesUserProfile(campaign, resolvedUserProfile) &&
         this.hasUsableCarouselImage(campaign)
       );
       
@@ -194,6 +288,8 @@ export class DeliveryService {
     limit: number | null = 3
   ): Promise<ShortsAd[]> {
     try {
+      const resolvedUserProfile = await this.enrichUserProfile(userProfile);
+
       // 1️⃣ FETCH: Récupérer TOUTES les annonces
       const queryPromise = this.supabase
         .from('ads_campaigns')
@@ -221,10 +317,10 @@ export class DeliveryService {
 
       // 2️⃣ FILTER: Filtrer selon le profil utilisateur
       console.log(`[getShortsAds] Total ads fetched: ${campaigns.length}`);
-      console.log(`[getShortsAds] User profile for filtering:`, userProfile);
+      console.log(`[getShortsAds] User profile for filtering:`, resolvedUserProfile);
       
       const filteredCampaigns = (campaigns as any[]).filter((campaign: any) =>
-        this.matchesUserProfile(campaign, userProfile)
+        this.matchesUserProfile(campaign, resolvedUserProfile)
       );
       
       console.log(`[getShortsAds] Ads after filtering: ${filteredCampaigns.length}, requested limit: ${limit}`);
