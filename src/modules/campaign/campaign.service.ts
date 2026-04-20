@@ -48,15 +48,17 @@ export class CampaignService {
     console.log('📱 Campaign created:', createdCampaign.id);
     console.log('   send_notifications:', campaign.send_notifications);
 
-    // 📢 Envoyer les notifications (asynchrone, ne pas attendre)
+    // 📢 Envoyer les notifications (asynchrone fire-and-forget)
     if (campaign.send_notifications) {
-      console.log('🔔 send_notifications is true, triggering notifyCampaignLaunch()');
-      try {
-        void this.notifyCampaignLaunch(createdCampaign, campaign);
-      } catch (err) {
-        console.error('Error in campaign notification flow:', err);
-        // Continue même si les notifications échouent
-      }
+      console.log('🔔 send_notifications is true, scheduling notifyCampaignLaunch()');
+      // Utiliser setTimeout pour exécuter asynchronement SANS attendre
+      setTimeout(async () => {
+        try {
+          await this.notifyCampaignLaunch(createdCampaign, campaign);
+        } catch (err) {
+          console.error('❌ Error in scheduled campaign notification:', err);
+        }
+      }, 100); // 100ms de délai pour ne pas bloquer la réponse HTTP
     } else {
       console.log('⏭️ send_notifications is false, skipping notifications');
     }
