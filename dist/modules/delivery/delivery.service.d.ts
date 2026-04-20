@@ -31,6 +31,8 @@ export declare class DeliveryService {
     private normalizeGender;
     private normalizeUserType;
     private calculateAge;
+    private resolveNumericValue;
+    private matchesAgeTargeting;
     private sanitizeUserProfile;
     private enrichUserProfile;
     private getAdViewsCount;

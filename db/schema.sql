@@ -10,6 +10,9 @@ CREATE TABLE ads_campaigns (
   target_user_type text,
   target_users text[],
   min_age int,
+  max_age int,
+  target_age int,
+  age_tolerance int,
   location text,
   status text DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at timestamp DEFAULT now()

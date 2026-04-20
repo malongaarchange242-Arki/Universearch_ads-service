@@ -101,6 +101,76 @@ export class DeliveryService {
     return age;
   }
 
+  private resolveNumericValue(value: unknown): number | undefined {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+
+    return undefined;
+  }
+
+  private matchesAgeTargeting(campaign: any, userProfile: UserProfile): boolean {
+    const userAge = this.resolveNumericValue(userProfile.age);
+    const minAge = this.resolveNumericValue(campaign.min_age);
+    const maxAge = this.resolveNumericValue(campaign.max_age);
+    const targetAge = this.resolveNumericValue(campaign.target_age);
+    const ageTolerance = this.resolveNumericValue(campaign.age_tolerance);
+    const hasRangeTargeting = minAge !== undefined || maxAge !== undefined;
+    const hasToleranceTargeting = targetAge !== undefined && ageTolerance !== undefined;
+
+    if (!hasRangeTargeting && !hasToleranceTargeting) {
+      return true;
+    }
+
+    if (userAge === undefined) {
+      const targetingDescription = hasRangeTargeting
+        ? `min_age=${minAge ?? '-'}, max_age=${maxAge ?? '-'}`
+        : `target_age=${targetAge}, age_tolerance=${ageTolerance}`;
+
+      console.log(
+        `[matchesUserProfile] Ad ${campaign.id} filtered: missing user age for ${targetingDescription}`
+      );
+      return false;
+    }
+
+    if (hasRangeTargeting) {
+      if (minAge !== undefined && userAge < minAge) {
+        console.log(
+          `[matchesUserProfile] Ad ${campaign.id} filtered: age below minimum (min_age=${minAge}, user_age=${userAge})`
+        );
+        return false;
+      }
+
+      if (maxAge !== undefined && userAge > maxAge) {
+        console.log(
+          `[matchesUserProfile] Ad ${campaign.id} filtered: age above maximum (max_age=${maxAge}, user_age=${userAge})`
+        );
+        return false;
+      }
+
+      return true;
+    }
+
+    const toleratedMinAge = targetAge! - ageTolerance!;
+    const toleratedMaxAge = targetAge! + ageTolerance!;
+
+    if (userAge < toleratedMinAge || userAge > toleratedMaxAge) {
+      console.log(
+        `[matchesUserProfile] Ad ${campaign.id} filtered: target age mismatch (target_age=${targetAge}, age_tolerance=${ageTolerance}, user_age=${userAge})`
+      );
+      return false;
+    }
+
+    return true;
+  }
+
   private sanitizeUserProfile(userProfile: UserProfile): UserProfile {
     return Object.fromEntries(
       Object.entries(userProfile).filter(
@@ -231,20 +301,8 @@ export class DeliveryService {
     }
 
     // Age matching
-    if (campaign.min_age) {
-      if (typeof userProfile.age !== 'number' || !Number.isFinite(userProfile.age)) {
-        console.log(
-          `[matchesUserProfile] Ad ${campaign.id} filtered: missing user age for min_age=${campaign.min_age}`
-        );
-        return false;
-      }
-
-      if (userProfile.age < campaign.min_age) {
-        console.log(
-          `[matchesUserProfile] Ad ${campaign.id} filtered: age mismatch (min_age=${campaign.min_age}, user_age=${userProfile.age})`
-        );
-        return false;
-      }
+    if (!this.matchesAgeTargeting(campaign, userProfile)) {
+      return false;
     }
 
     // Location matching

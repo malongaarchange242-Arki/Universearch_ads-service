@@ -22,4 +22,7 @@ export async function campaignRoutes(app: FastifyInstance) {
 
   // DELETE /ads/campaign/:id
   app.delete('/campaign/:id', campaignController.deleteCampaign.bind(campaignController));
+
+  // POST /ads/campaign/:id/send-notifications (manual notification trigger)
+  app.post('/campaign/:id/send-notifications', campaignController.sendCampaignNotifications.bind(campaignController));
 }

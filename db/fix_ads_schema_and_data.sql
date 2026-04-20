@@ -10,6 +10,16 @@
 ALTER TABLE ads_campaigns
 ADD COLUMN IF NOT EXISTS click_url text;
 
+-- Ajouter les nouveaux champs de ciblage d'age
+ALTER TABLE ads_campaigns
+ADD COLUMN IF NOT EXISTS max_age integer;
+
+ALTER TABLE ads_campaigns
+ADD COLUMN IF NOT EXISTS target_age integer;
+
+ALTER TABLE ads_campaigns
+ADD COLUMN IF NOT EXISTS age_tolerance integer;
+
 -- Vérifier que la colonne existe maintenant
 SELECT column_name FROM information_schema.columns 
 WHERE table_name = 'ads_campaigns' 

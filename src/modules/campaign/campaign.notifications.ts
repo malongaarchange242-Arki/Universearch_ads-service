@@ -1,0 +1,204 @@
+// src/modules/campaign/campaign.notifications.ts
+
+import axios from 'axios';
+import { SupabaseClient } from '@supabase/supabase-js';
+
+const DEFAULT_NOTIFICATION_SERVICE_URL =
+  'https://universearch-notification-service.onrender.com';
+
+export interface CampaignNotificationPayload {
+  user_ids: string[];
+  type: 'campaign';
+  title: string;
+  message: string;
+  delivery_types: ('in_app' | 'push')[];
+  data: {
+    campaign_id: string;
+    campaign_name: string;
+    campaign_title: string;
+    campaign_description: string;
+    media_url?: string | null;
+  };
+}
+
+interface BroadcastNotificationsResponse {
+  count?: number;
+  errors?: unknown[];
+}
+
+/**
+ * Récupérer les utilisateurs à notifier selon les critères de ciblage
+ */
+export const getTargetUsers = async (
+  supabase: SupabaseClient,
+  targetAudience: 'followers' | 'all',
+  instituteId?: string,
+  ageFilters?: {
+    minAge?: number;
+    maxAge?: number;
+  }
+): Promise<string[]> => {
+  try {
+    let query: any = supabase.from('profiles').select('id');
+
+    // Filtre par type d'utilisateur
+    if (targetAudience === 'followers' && instituteId) {
+      // Récupérer les followers de l'institution
+      const { data: followers, error } = await supabase
+        .from('followers_universites')
+        .select('user_id')
+        .eq('universite_id', instituteId);
+
+      if (error) {
+        console.error('Error fetching followers:', error);
+        return [];
+      }
+
+      return (followers || []).map((f: any) => f.user_id);
+    }
+
+    // Filtre par âge si fourni
+    if (ageFilters?.minAge) {
+      query = query.gte('age', ageFilters.minAge);
+    }
+    if (ageFilters?.maxAge) {
+      query = query.lte('age', ageFilters.maxAge);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching target users:', error);
+      return [];
+    }
+
+    return (data || []).map((u: any) => u.id);
+  } catch (err) {
+    console.error('Error in getTargetUsers:', err);
+    return [];
+  }
+};
+
+/**
+ * Envoyer des notifications broadcast pour une campagne
+ */
+export const broadcastCampaignNotifications = async (
+  userIds: string[],
+  campaignId: string,
+  campaignName: string,
+  campaignTitle: string,
+  campaignDescription: string,
+  mediaUrl?: string | null,
+  customMessage?: string
+): Promise<{ success: boolean; deliveredCount: number; errors: unknown[] }> => {
+  if (userIds.length === 0) {
+    console.warn('No users to notify for campaign');
+    return { success: true, deliveredCount: 0, errors: [] };
+  }
+
+  try {
+    const notificationServiceUrl =
+      process.env.NOTIFICATION_SERVICE_URL || DEFAULT_NOTIFICATION_SERVICE_URL;
+
+    const payload: CampaignNotificationPayload = {
+      user_ids: userIds,
+      type: 'campaign',
+      title: 'Nouvelle Campagne',
+      message:
+        customMessage ||
+        `${campaignName} a lancé une nouvelle campagne: "${campaignTitle}"`,
+      delivery_types: ['in_app', 'push'],
+      data: {
+        campaign_id: campaignId,
+        campaign_name: campaignName,
+        campaign_title: campaignTitle,
+        campaign_description: campaignDescription,
+        media_url: mediaUrl || null,
+      },
+    };
+
+    const response = await axios.post<BroadcastNotificationsResponse>(
+      `${notificationServiceUrl}/api/notifications/broadcast`,
+      payload,
+      {
+        timeout: 20000,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const broadcastResponse = response.data;
+    const deliveredCount =
+      typeof broadcastResponse?.count === 'number'
+        ? broadcastResponse.count
+        : userIds.length;
+
+    const errors = Array.isArray(broadcastResponse?.errors)
+      ? broadcastResponse.errors
+      : [];
+
+    if (errors.length > 0) {
+      console.warn(
+        'Campaign broadcast completed with partial errors:',
+        errors
+      );
+    }
+
+    console.log(
+      `Campaign notifications sent to ${deliveredCount}/${userIds.length} users`
+    );
+
+    return {
+      success: true,
+      deliveredCount,
+      errors,
+    };
+  } catch (err) {
+    const details =
+      (err as any)?.response?.data ??
+      (err as any)?.message ??
+      (err as any)?.code ??
+      err;
+
+    console.error('Error broadcasting campaign notifications:', details);
+    return {
+      success: false,
+      deliveredCount: 0,
+      errors: [details],
+    };
+  }
+};
+
+/**
+ * Récupérer info de l'institution qui lance la campagne
+ */
+export const getInstitutionInfo = async (
+  supabase: SupabaseClient,
+  instituteId: string,
+  instituteType: 'universite' | 'centre_formation'
+): Promise<{ name: string; sigle?: string } | null> => {
+  try {
+    const tableName =
+      instituteType === 'universite' ? 'universites' : 'centres_formation';
+
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('nom, sigle')
+      .eq('id', instituteId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching institution info:', error);
+      return null;
+    }
+
+    return {
+      name: data?.nom || instituteId,
+      sigle: data?.sigle,
+    };
+  } catch (err) {
+    console.error('Error in getInstitutionInfo:', err);
+    return null;
+  }
+};

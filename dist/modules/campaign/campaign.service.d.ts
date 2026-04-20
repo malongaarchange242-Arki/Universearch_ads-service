@@ -10,6 +10,9 @@ export interface Campaign {
     target_user_type?: string;
     target_users?: string[];
     min_age?: number;
+    max_age?: number;
+    target_age?: number;
+    age_tolerance?: number;
     location?: string;
     status?: 'active' | 'inactive';
     created_at?: string;

@@ -4,7 +4,9 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { CampaignService, Campaign } from './campaign.service';
 
-const campaignSchema = z.object({
+const ageFieldSchema = z.number().int().nonnegative().optional();
+
+const baseCampaignSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   media_url: z.string().url(),
@@ -13,12 +15,55 @@ const campaignSchema = z.object({
   target_gender: z.string().optional(),
   target_user_type: z.string().optional(),
   target_users: z.array(z.string()).optional(),
-  min_age: z.number().int().nonnegative().optional(),
+  min_age: ageFieldSchema,
+  max_age: ageFieldSchema,
+  target_age: ageFieldSchema,
+  age_tolerance: ageFieldSchema,
   location: z.string().optional(),
   status: z.enum(['active', 'inactive']).optional(),
 });
 
+function validateAgeTargeting(
+  data: Partial<z.infer<typeof baseCampaignSchema>>,
+  ctx: z.RefinementCtx
+) {
+  const hasMinAge = typeof data.min_age === 'number';
+  const hasMaxAge = typeof data.max_age === 'number';
+  const hasTargetAge = typeof data.target_age === 'number';
+  const hasAgeTolerance = typeof data.age_tolerance === 'number';
+  const usesRangeTargeting = hasMinAge || hasMaxAge;
+  const usesTargetAgeTargeting = hasTargetAge || hasAgeTolerance;
+
+  if (hasMinAge && hasMaxAge && data.max_age! < data.min_age!) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['max_age'],
+      message: 'max_age must be greater than or equal to min_age',
+    });
+  }
+
+  if (hasTargetAge !== hasAgeTolerance) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: hasTargetAge ? ['age_tolerance'] : ['target_age'],
+      message: 'target_age and age_tolerance must be provided together',
+    });
+  }
+
+  if (usesRangeTargeting && usesTargetAgeTargeting) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['target_age'],
+      message: 'Use either min/max age targeting or target_age with age_tolerance, not both',
+    });
+  }
+}
+
+const campaignSchema = baseCampaignSchema.superRefine(validateAgeTargeting);
+const campaignUpdateSchema = baseCampaignSchema.partial().superRefine(validateAgeTargeting);
+
 type CampaignInput = z.infer<typeof campaignSchema>;
+type CampaignUpdateInput = z.infer<typeof campaignUpdateSchema>;
 
 export class CampaignController {
   constructor(private campaignService: CampaignService) {}
@@ -79,10 +124,18 @@ export class CampaignController {
   async updateCampaign(request: FastifyRequest, reply: FastifyReply) {
     try {
       const { id } = request.params as { id: string };
-      const updates = request.body as Partial<Campaign>;
+      const updates = campaignUpdateSchema.parse(request.body) as CampaignUpdateInput;
       const result = await this.campaignService.updateCampaign(id, updates);
       reply.send({ success: true, data: result });
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        reply.code(400).send({
+          success: false,
+          error: 'Invalid campaign payload',
+          details: error.issues,
+        });
+        return;
+      }
       reply.code(400).send({ success: false, error: (error as Error).message });
     }
   }
@@ -94,6 +147,16 @@ export class CampaignController {
       reply.send({ success: true, message: 'Campaign deleted' });
     } catch (error) {
       reply.code(500).send({ success: false, error: (error as Error).message });
+    }
+  }
+
+  async sendCampaignNotifications(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const { id } = request.params as { id: string };
+      const result = await this.campaignService.sendCampaignNotifications(id);
+      reply.send({ success: true, data: result });
+    } catch (error) {
+      reply.code(400).send({ success: false, error: (error as Error).message });
     }
   }
 }
