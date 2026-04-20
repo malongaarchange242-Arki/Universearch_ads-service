@@ -121,10 +121,10 @@ export const broadcastCampaignNotifications = async (
     };
 
     const response = await axios.post<BroadcastNotificationsResponse>(
-      `${notificationServiceUrl}/notifications/broadcast`,
+      `${notificationServiceUrl}/api/notifications/broadcast`,
       payload,
       {
-        timeout: 60000,  // 60 seconds instead of 20
+        timeout: 60000,  // 60 seconds
         headers: {
           'Content-Type': 'application/json',
         },
