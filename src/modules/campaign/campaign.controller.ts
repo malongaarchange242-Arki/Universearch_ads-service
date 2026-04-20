@@ -21,6 +21,8 @@ const baseCampaignSchema = z.object({
   age_tolerance: ageFieldSchema,
   location: z.string().optional(),
   status: z.enum(['active', 'inactive']).optional(),
+  send_notifications: z.boolean().optional(),
+  notification_message: z.string().optional(),
 });
 
 function validateAgeTargeting(
