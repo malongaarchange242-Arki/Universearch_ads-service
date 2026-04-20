@@ -19,6 +19,8 @@ const baseCampaignSchema = zod_1.z.object({
     age_tolerance: ageFieldSchema,
     location: zod_1.z.string().optional(),
     status: zod_1.z.enum(['active', 'inactive']).optional(),
+    send_notifications: zod_1.z.boolean().optional(),
+    notification_message: zod_1.z.string().optional(),
 });
 function validateAgeTargeting(data, ctx) {
     const hasMinAge = typeof data.min_age === 'number';
@@ -134,6 +136,16 @@ class CampaignController {
         }
         catch (error) {
             reply.code(500).send({ success: false, error: error.message });
+        }
+    }
+    async sendCampaignNotifications(request, reply) {
+        try {
+            const { id } = request.params;
+            const result = await this.campaignService.sendCampaignNotifications(id);
+            reply.send({ success: true, data: result });
+        }
+        catch (error) {
+            reply.code(400).send({ success: false, error: error.message });
         }
     }
 }

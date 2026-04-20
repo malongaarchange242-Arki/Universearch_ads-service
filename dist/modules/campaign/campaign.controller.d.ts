@@ -8,5 +8,6 @@ export declare class CampaignController {
     getCampaign(request: FastifyRequest, reply: FastifyReply): Promise<void>;
     updateCampaign(request: FastifyRequest, reply: FastifyReply): Promise<void>;
     deleteCampaign(request: FastifyRequest, reply: FastifyReply): Promise<void>;
+    sendCampaignNotifications(request: FastifyRequest, reply: FastifyReply): Promise<void>;
 }
 //# sourceMappingURL=campaign.controller.d.ts.map
