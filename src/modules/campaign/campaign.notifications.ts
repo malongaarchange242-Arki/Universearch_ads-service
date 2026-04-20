@@ -65,6 +65,7 @@ export const getTargetUsers = async (
       query = query.lte('age', ageFilters.maxAge);
     }
 
+    // Exécuter la requête Supabase
     const { data, error } = await query;
 
     if (error) {
@@ -72,7 +73,9 @@ export const getTargetUsers = async (
       return [];
     }
 
-    return (data || []).map((u: any) => u.id);
+    const userIds = (data || []).map((u: any) => u.id);
+    console.log(`🔔 getTargetUsers(${targetAudience}) found ${userIds.length} users`);
+    return userIds;
   } catch (err) {
     console.error('Error in getTargetUsers:', err);
     return [];

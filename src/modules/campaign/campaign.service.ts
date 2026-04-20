@@ -45,15 +45,20 @@ export class CampaignService {
     }
 
     const createdCampaign = data as Campaign;
+    console.log('📱 Campaign created:', createdCampaign.id);
+    console.log('   send_notifications:', campaign.send_notifications);
 
     // 📢 Envoyer les notifications (asynchrone, ne pas attendre)
     if (campaign.send_notifications) {
+      console.log('🔔 send_notifications is true, triggering notifyCampaignLaunch()');
       try {
         void this.notifyCampaignLaunch(createdCampaign, campaign);
       } catch (err) {
         console.error('Error in campaign notification flow:', err);
         // Continue même si les notifications échouent
       }
+    } else {
+      console.log('⏭️ send_notifications is false, skipping notifications');
     }
 
     return createdCampaign;
@@ -67,14 +72,20 @@ export class CampaignService {
     campaignInput: Omit<Campaign, 'id' | 'created_at'>
   ): Promise<void> {
     try {
+      console.log('📢 notifyCampaignLaunch started for campaign:', campaign.id);
+      console.log('   institution_id:', campaign.institution_id);
+      console.log('   target_users:', campaignInput.target_users?.length || 0);
+      
       // Déterminer les utilisateurs à notifier
       let targetUserIds: string[] = [];
 
       if (campaignInput.target_users && campaignInput.target_users.length > 0) {
         // Utilisateurs spécifiquement sélectionnés
+        console.log('   Using specifically selected users:', campaignInput.target_users.length);
         targetUserIds = campaignInput.target_users;
       } else if (campaign.institution_id) {
         // Followers de l'institution
+        console.log('   Fetching followers for institution:', campaign.institution_id);
         targetUserIds = await getTargetUsers(
           this.supabase,
           'followers',
@@ -84,8 +95,10 @@ export class CampaignService {
             maxAge: campaignInput.max_age,
           }
         );
+        console.log('   Found followers:', targetUserIds.length);
       } else {
         // Tous les utilisateurs (avec filtres d'âge si fournis)
+        console.log('   Fetching all users');
         targetUserIds = await getTargetUsers(
           this.supabase,
           'all',
@@ -95,10 +108,11 @@ export class CampaignService {
             maxAge: campaignInput.max_age,
           }
         );
+        console.log('   Found all users:', targetUserIds.length);
       }
 
       if (targetUserIds.length === 0) {
-        console.warn('No target users for campaign notification');
+        console.warn('⚠️ No target users for campaign notification');
         return;
       }
 
@@ -116,6 +130,7 @@ export class CampaignService {
       }
 
       // Envoyer les notifications
+      console.log('🚀 Calling broadcastCampaignNotifications with', targetUserIds.length, 'users');
       const result = await broadcastCampaignNotifications(
         targetUserIds,
         campaign.id || '',
@@ -126,9 +141,9 @@ export class CampaignService {
         campaignInput.notification_message
       );
 
-      console.log(`Campaign notifications sent: ${result.deliveredCount}/${targetUserIds.length}`);
+      console.log(`✅ Campaign notifications sent: ${result.deliveredCount}/${targetUserIds.length}`);
     } catch (err) {
-      console.error('Error notifying campaign launch:', err);
+      console.error('❌ Error notifying campaign launch:', err);
     }
   }
 

@@ -17,8 +17,11 @@ class CampaignService {
             throw error;
         }
         const createdCampaign = data;
+        console.log('📱 Campaign created:', createdCampaign.id);
+        console.log('   send_notifications:', campaign.send_notifications);
         // 📢 Envoyer les notifications (asynchrone, ne pas attendre)
         if (campaign.send_notifications) {
+            console.log('🔔 send_notifications is true, triggering notifyCampaignLaunch()');
             try {
                 void this.notifyCampaignLaunch(createdCampaign, campaign);
             }
@@ -27,6 +30,9 @@ class CampaignService {
                 // Continue même si les notifications échouent
             }
         }
+        else {
+            console.log('⏭️ send_notifications is false, skipping notifications');
+        }
         return createdCampaign;
     }
     /**
@@ -34,28 +40,36 @@ class CampaignService {
      */
     async notifyCampaignLaunch(campaign, campaignInput) {
         try {
+            console.log('📢 notifyCampaignLaunch started for campaign:', campaign.id);
+            console.log('   institution_id:', campaign.institution_id);
+            console.log('   target_users:', campaignInput.target_users?.length || 0);
             // Déterminer les utilisateurs à notifier
             let targetUserIds = [];
             if (campaignInput.target_users && campaignInput.target_users.length > 0) {
                 // Utilisateurs spécifiquement sélectionnés
+                console.log('   Using specifically selected users:', campaignInput.target_users.length);
                 targetUserIds = campaignInput.target_users;
             }
             else if (campaign.institution_id) {
                 // Followers de l'institution
+                console.log('   Fetching followers for institution:', campaign.institution_id);
                 targetUserIds = await (0, campaign_notifications_1.getTargetUsers)(this.supabase, 'followers', campaign.institution_id, {
                     minAge: campaignInput.min_age,
                     maxAge: campaignInput.max_age,
                 });
+                console.log('   Found followers:', targetUserIds.length);
             }
             else {
                 // Tous les utilisateurs (avec filtres d'âge si fournis)
+                console.log('   Fetching all users');
                 targetUserIds = await (0, campaign_notifications_1.getTargetUsers)(this.supabase, 'all', undefined, {
                     minAge: campaignInput.min_age,
                     maxAge: campaignInput.max_age,
                 });
+                console.log('   Found all users:', targetUserIds.length);
             }
             if (targetUserIds.length === 0) {
-                console.warn('No target users for campaign notification');
+                console.warn('⚠️ No target users for campaign notification');
                 return;
             }
             // Récupérer infos de l'institution
@@ -67,11 +81,12 @@ class CampaignService {
                 }
             }
             // Envoyer les notifications
+            console.log('🚀 Calling broadcastCampaignNotifications with', targetUserIds.length, 'users');
             const result = await (0, campaign_notifications_1.broadcastCampaignNotifications)(targetUserIds, campaign.id || '', institutionName, campaign.title, campaign.description || '', campaign.media_url, campaignInput.notification_message);
-            console.log(`Campaign notifications sent: ${result.deliveredCount}/${targetUserIds.length}`);
+            console.log(`✅ Campaign notifications sent: ${result.deliveredCount}/${targetUserIds.length}`);
         }
         catch (err) {
-            console.error('Error notifying campaign launch:', err);
+            console.error('❌ Error notifying campaign launch:', err);
         }
     }
     async getCampaigns(limit = 50, offset = 0) {

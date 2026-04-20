@@ -33,12 +33,15 @@ const getTargetUsers = async (supabase, targetAudience, instituteId, ageFilters)
         if (ageFilters?.maxAge) {
             query = query.lte('age', ageFilters.maxAge);
         }
+        // Exécuter la requête Supabase
         const { data, error } = await query;
         if (error) {
             console.error('Error fetching target users:', error);
             return [];
         }
-        return (data || []).map((u) => u.id);
+        const userIds = (data || []).map((u) => u.id);
+        console.log(`🔔 getTargetUsers(${targetAudience}) found ${userIds.length} users`);
+        return userIds;
     }
     catch (err) {
         console.error('Error in getTargetUsers:', err);
