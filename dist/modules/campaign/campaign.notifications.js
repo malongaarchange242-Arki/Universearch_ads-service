@@ -58,7 +58,13 @@ const broadcastCampaignNotifications = async (userIds, campaignId, campaignName,
         return { success: true, deliveredCount: 0, errors: [] };
     }
     try {
-        const notificationServiceUrl = process.env.NOTIFICATION_SERVICE_URL || DEFAULT_NOTIFICATION_SERVICE_URL;
+        const notificationServiceUrl = process.env.NOTIFICATION_SERVICE_URL ||
+            (process.env.NOTIFICATION_SERVICE_HOST
+                ? `http://${process.env.NOTIFICATION_SERVICE_HOST}:${process.env.NOTIFICATION_SERVICE_PORT || '4000'}`
+                : DEFAULT_NOTIFICATION_SERVICE_URL);
+        const notificationServiceTimeoutMs = Number(process.env.NOTIFICATION_SERVICE_TIMEOUT_MS || 60000);
+        console.log('🔔 ADS SERVICE NOTIFICATION_SERVICE_URL =', notificationServiceUrl);
+        console.log('🔔 ADS SERVICE NOTIFICATION_SERVICE_TIMEOUT_MS =', notificationServiceTimeoutMs);
         const payload = {
             user_ids: userIds,
             type: 'campaign',
@@ -75,7 +81,7 @@ const broadcastCampaignNotifications = async (userIds, campaignId, campaignName,
             },
         };
         const response = await axios_1.default.post(`${notificationServiceUrl}/api/notifications/broadcast`, payload, {
-            timeout: 60000, // 60 seconds
+            timeout: notificationServiceTimeoutMs,
             headers: {
                 'Content-Type': 'application/json',
             },

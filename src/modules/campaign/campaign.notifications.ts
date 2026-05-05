@@ -101,7 +101,20 @@ export const broadcastCampaignNotifications = async (
 
   try {
     const notificationServiceUrl =
-      process.env.NOTIFICATION_SERVICE_URL || DEFAULT_NOTIFICATION_SERVICE_URL;
+      process.env.NOTIFICATION_SERVICE_URL ||
+      (process.env.NOTIFICATION_SERVICE_HOST
+        ? `http://${process.env.NOTIFICATION_SERVICE_HOST}:${process.env.NOTIFICATION_SERVICE_PORT || '4000'}`
+        : DEFAULT_NOTIFICATION_SERVICE_URL);
+
+    const notificationServiceTimeoutMs = Number(
+      process.env.NOTIFICATION_SERVICE_TIMEOUT_MS || 60000
+    );
+
+    console.log('🔔 ADS SERVICE NOTIFICATION_SERVICE_URL =', notificationServiceUrl);
+    console.log(
+      '🔔 ADS SERVICE NOTIFICATION_SERVICE_TIMEOUT_MS =',
+      notificationServiceTimeoutMs
+    );
 
     const payload: CampaignNotificationPayload = {
       user_ids: userIds,
