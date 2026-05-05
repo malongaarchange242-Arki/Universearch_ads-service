@@ -8,7 +8,9 @@ const bullmq_1 = require("bullmq");
 const ioredis_1 = __importDefault(require("ioredis"));
 const crypto_1 = require("crypto");
 exports.VIDEO_PROCESSING_QUEUE = process.env.VIDEO_PROCESSING_QUEUE || 'video-processing';
-const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const redisUrl = process.env.REDIS_URL ||
+    `redis://${process.env.REDIS_HOST || '127.0.0.1'}:${process.env.REDIS_PORT || '6379'}`;
+console.log('🔴 ADS SERVICE REDIS_URL =', redisUrl);
 exports.redisConnection = new ioredis_1.default(redisUrl, {
     maxRetriesPerRequest: null,
 });

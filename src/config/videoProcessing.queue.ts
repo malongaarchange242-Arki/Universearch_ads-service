@@ -17,7 +17,10 @@ export interface VideoProcessingJobData {
   campaignId?: string | null;
 }
 
-const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const redisUrl = process.env.REDIS_URL ||
+  `redis://${process.env.REDIS_HOST || '127.0.0.1'}:${process.env.REDIS_PORT || '6379'}`;
+
+console.log('🔴 ADS SERVICE REDIS_URL =', redisUrl);
 
 export const redisConnection = new IORedis(redisUrl, {
   maxRetriesPerRequest: null,
