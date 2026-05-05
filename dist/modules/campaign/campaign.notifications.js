@@ -62,9 +62,9 @@ const broadcastCampaignNotifications = async (userIds, campaignId, campaignName,
         const payload = {
             user_ids: userIds,
             type: 'campaign',
-            title: 'Nouvelle Campagne',
+            title: 'Nouveau Post',
             message: customMessage ||
-                `${campaignName} a lancé une nouvelle campagne: "${campaignTitle}"`,
+                'Universearch vient de faire une annonce, ça peut vous intéressez\nAccedez à la page d\'Accueil pour voir l\'annonce',
             delivery_types: ['in_app', 'push'],
             data: {
                 campaign_id: campaignId,

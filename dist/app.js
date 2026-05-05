@@ -32,6 +32,9 @@ exports.app.register(cors_1.default, {
  * Décorateurs
  */
 exports.app.decorate('supabase', (0, supabase_1.createSupabaseClient)());
+exports.app.addHook('onRequest', async (request) => {
+    request.startTime = process.hrtime.bigint();
+});
 /**
  * Logging réponse
  */

@@ -8,11 +8,21 @@ import * as path from 'path';
 import ffmpeg from 'fluent-ffmpeg';
 import * as ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 
-// Configurer FFmpeg path
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+ffmpeg.setFfmpegPath(process.env.FFMPEG_PATH || ffmpegInstaller.path);
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm'];
+
+export interface UploadedVideoMedia {
+  mediaUrl: string;
+  thumbnailUrl: string;
+}
+
+export interface RawVideoMedia {
+  rawUrl: string;
+  bucket: string;
+  path: string;
+}
 
 export class MediaService {
   constructor(private supabase: SupabaseClient) {}
@@ -25,13 +35,11 @@ export class MediaService {
 
   private generateSafeFilename(filename: string, mimetype: string): string {
     const ext = filename.split('.').pop()?.toLowerCase() || 'bin';
-    // For images, ensure proper extension based on mimetype
     if (mimetype === 'image/jpeg') return `${randomUUID()}.jpg`;
     if (mimetype === 'image/png') return `${randomUUID()}.png`;
     if (mimetype === 'image/webp') return `${randomUUID()}.webp`;
     if (mimetype === 'video/mp4') return `${randomUUID()}.mp4`;
     if (mimetype === 'video/webm') return `${randomUUID()}.webm`;
-    // Fallback
     return `${randomUUID()}.${ext}`;
   }
 
@@ -44,7 +52,7 @@ export class MediaService {
     const safeFilename = this.generateSafeFilename(filename, mimetype);
     const filePath = `images/${safeFilename}`;
 
-    const { data, error } = await this.supabase.storage
+    const { error } = await this.supabase.storage
       .from('ads-media')
       .upload(filePath, file, {
         contentType: mimetype,
@@ -60,22 +68,65 @@ export class MediaService {
     return urlData.publicUrl;
   }
 
-  async uploadVideo(file: Buffer, filename: string, mimetype: string): Promise<string> {
+  async uploadVideo(file: Buffer, filename: string, mimetype: string): Promise<UploadedVideoMedia> {
     const fileType = this.validateFileType(mimetype);
     if (fileType !== 'video') {
       throw new Error(`Invalid video type: ${mimetype}. Allowed: ${ALLOWED_VIDEO_TYPES.join(', ')}`);
     }
 
-    // Normaliser la vidéo avant upload
     const normalizedBuffer = await this.normalizeVideo(file, filename);
+    const thumbnailBuffer = await this.generateThumbnailBuffer(normalizedBuffer);
 
-    const safeFilename = this.generateSafeFilename(filename, 'video/mp4'); // Toujours MP4 après normalisation
+    const safeFilename = this.generateSafeFilename(filename, 'video/mp4');
     const filePath = `videos/${safeFilename}`;
+    const thumbnailPath = `thumbnails/${path.parse(safeFilename).name}.jpg`;
 
-    const { data, error } = await this.supabase.storage
+    const { error } = await this.supabase.storage
       .from('ads-media')
       .upload(filePath, normalizedBuffer, {
-        contentType: 'video/mp4', // Toujours MP4
+        contentType: 'video/mp4',
+        upsert: false,
+      });
+
+    if (error) throw error;
+
+    const { error: thumbnailError } = await this.supabase.storage
+      .from('ads-media')
+      .upload(thumbnailPath, thumbnailBuffer, {
+        contentType: 'image/jpeg',
+        upsert: false,
+      });
+
+    if (thumbnailError) throw thumbnailError;
+
+    const { data: urlData } = this.supabase.storage
+      .from('ads-media')
+      .getPublicUrl(filePath);
+
+    const { data: thumbnailUrlData } = this.supabase.storage
+      .from('ads-media')
+      .getPublicUrl(thumbnailPath);
+
+    return {
+      mediaUrl: urlData.publicUrl,
+      thumbnailUrl: thumbnailUrlData.publicUrl,
+    };
+  }
+
+  async uploadRawVideo(file: Buffer, filename: string, mimetype: string, ownerId = 'unknown'): Promise<RawVideoMedia> {
+    const fileType = this.validateFileType(mimetype);
+    if (fileType !== 'video') {
+      throw new Error(`Invalid video type: ${mimetype}. Allowed: ${ALLOWED_VIDEO_TYPES.join(', ')}`);
+    }
+
+    const safeOwnerId = path.basename(ownerId || 'unknown').replace(/[^\w.-]/g, '_') || 'unknown';
+    const ext = path.extname(filename || '').toLowerCase() || '.video';
+    const filePath = `raw/videos/${safeOwnerId}/${randomUUID()}${ext}`;
+
+    const { error } = await this.supabase.storage
+      .from('ads-media')
+      .upload(filePath, file, {
+        contentType: mimetype,
         upsert: false,
       });
 
@@ -85,85 +136,128 @@ export class MediaService {
       .from('ads-media')
       .getPublicUrl(filePath);
 
-    return urlData.publicUrl;
+    return {
+      rawUrl: urlData.publicUrl,
+      bucket: 'ads-media',
+      path: filePath,
+    };
   }
 
-  /**
-   * Normalise une vidéo en MP4 H.264/AAC pour compatibilité mobile
-   */
   private async normalizeVideo(inputBuffer: Buffer, originalFilename: string): Promise<Buffer> {
-    const os = require('os');
-    const path = require('path');
-    const tempInputPath = path.join(os.tmpdir(), `${randomUUID()}_${originalFilename}`);
+    const safeOriginalName = path.basename(originalFilename || 'upload.video').replace(/[^\w.-]/g, '_');
+    const tempInputPath = path.join(os.tmpdir(), `${randomUUID()}_${safeOriginalName}`);
     const tempOutputPath = path.join(os.tmpdir(), `${randomUUID()}_normalized.mp4`);
 
-    // Écrire le buffer d'entrée dans un fichier temporaire
     fs.writeFileSync(tempInputPath, inputBuffer);
 
     return new Promise((resolve, reject) => {
-      ffmpeg(tempInputPath)
-        .inputOptions(['-hwaccel auto']) // Accélération matérielle si disponible
+      const command = ffmpeg(tempInputPath)
         .outputOptions([
-          '-c:v libx264', // Codec vidéo H.264
-          '-preset fast', // Preset rapide pour production
-          '-crf 23', // Qualité équilibrée (plus bas = meilleure qualité)
-          '-c:a aac', // Codec audio AAC
-          '-b:a 128k', // Bitrate audio
-          '-movflags +faststart', // Optimisé pour streaming (moov atom au début)
-          '-pix_fmt yuv420p', // Format pixel compatible mobile
-          '-vf scale=-2:720', // Redimensionner à 720p max (optionnel, ajustez selon besoin)
+          '-c:v libx264',
+          '-preset veryfast',
+          '-crf 23',
+          '-b:v 800k',
+          '-maxrate 800k',
+          '-bufsize 1200k',
+          '-c:a aac',
+          '-b:a 128k',
+          '-movflags +faststart',
+          '-threads 2',
+          '-pix_fmt yuv420p',
+          "-vf scale='trunc(min(1280,iw)/2)*2':-2",
         ])
-        .output(tempOutputPath)
+        .output(tempOutputPath);
+
+      let timedOut = false;
+      const timeoutMs = Number(process.env.FFMPEG_TIMEOUT_MS || 60_000);
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        command.kill('SIGKILL');
+      }, timeoutMs);
+
+      command
         .on('end', () => {
+          clearTimeout(timeout);
           const outputBuffer = fs.readFileSync(tempOutputPath);
-          // Nettoyer les fichiers temporaires
-          fs.unlinkSync(tempInputPath);
-          fs.unlinkSync(tempOutputPath);
+          this.cleanupFiles(tempInputPath, tempOutputPath);
           resolve(outputBuffer);
         })
-        .on('error', (err: any) => {
-          // Nettoyer en cas d'erreur
-          try { fs.unlinkSync(tempInputPath); } catch {}
-          try { fs.unlinkSync(tempOutputPath); } catch {}
-          reject(new Error(`FFmpeg normalization failed: ${err.message}`));
+        .on('error', (err: Error) => {
+          clearTimeout(timeout);
+          this.cleanupFiles(tempInputPath, tempOutputPath);
+          if (timedOut) {
+            reject(new Error(`FFmpeg normalization timed out after ${timeoutMs}ms`));
+          } else {
+            reject(new Error(`FFmpeg normalization failed: ${err.message}`));
+          }
         })
         .run();
     });
   }
 
-  async generateThumbnail(videoUrl: string): Promise<string> {
-    // For now, return a placeholder. In production, you'd use a video processing service
-    // to generate actual thumbnails from the video
-    const thumbnailPath = `thumbnails/${Date.now()}-thumb.jpg`;
+  private async generateThumbnailBuffer(inputBuffer: Buffer): Promise<Buffer> {
+    const tempInputPath = path.join(os.tmpdir(), `${randomUUID()}_thumb_input.mp4`);
+    const tempOutputPath = path.join(os.tmpdir(), `${randomUUID()}_thumb.jpg`);
 
-    // Placeholder thumbnail upload
-    const placeholderBuffer = Buffer.from('placeholder thumbnail data');
+    fs.writeFileSync(tempInputPath, inputBuffer);
 
-    const { data, error } = await this.supabase.storage
-      .from('ads-media')
-      .upload(thumbnailPath, placeholderBuffer, {
-        contentType: 'image/jpeg',
-        upsert: false,
-      });
+    return new Promise((resolve, reject) => {
+      const command = ffmpeg(tempInputPath)
+        .seekInput('00:00:01')
+        .outputOptions([
+          '-frames:v 1',
+          '-vf thumbnail,scale=720:-2',
+          '-q:v 3',
+        ])
+        .output(tempOutputPath);
 
-    if (error) throw error;
+      let timedOut = false;
+      const timeoutMs = Number(process.env.FFMPEG_TIMEOUT_MS || 60_000);
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        command.kill('SIGKILL');
+      }, timeoutMs);
 
-    const { data: urlData } = this.supabase.storage
-      .from('ads-media')
-      .getPublicUrl(thumbnailPath);
-
-    return urlData.publicUrl;
+      command
+        .on('end', () => {
+          clearTimeout(timeout);
+          const outputBuffer = fs.readFileSync(tempOutputPath);
+          this.cleanupFiles(tempInputPath, tempOutputPath);
+          resolve(outputBuffer);
+        })
+        .on('error', (err: Error) => {
+          clearTimeout(timeout);
+          this.cleanupFiles(tempInputPath, tempOutputPath);
+          if (timedOut) {
+            reject(new Error(`FFmpeg thumbnail generation timed out after ${timeoutMs}ms`));
+          } else {
+            reject(new Error(`FFmpeg thumbnail generation failed: ${err.message}`));
+          }
+        })
+        .run();
+    });
   }
 
   async deleteMedia(mediaUrl: string): Promise<void> {
-    // Extract file path from public URL
     const urlParts = mediaUrl.split('/');
-    const filePath = urlParts.slice(-2).join('/'); // e.g., "images/filename.jpg"
+    const filePath = urlParts.slice(-2).join('/');
 
     const { error } = await this.supabase.storage
       .from('ads-media')
       .remove([filePath]);
 
     if (error) throw error;
+  }
+
+  private cleanupFiles(...files: string[]) {
+    for (const file of files) {
+      try {
+        if (fs.existsSync(file)) {
+          fs.unlinkSync(file);
+        }
+      } catch {
+        // Best-effort cleanup.
+      }
+    }
   }
 }

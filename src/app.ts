@@ -32,6 +32,10 @@ app.register(cors, {
  */
 app.decorate('supabase', createSupabaseClient())
 
+app.addHook('onRequest', async (request) => {
+  (request as any).startTime = process.hrtime.bigint();
+});
+
 /**
  * Logging réponse
  */

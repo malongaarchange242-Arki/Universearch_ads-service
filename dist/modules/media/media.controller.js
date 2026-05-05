@@ -2,6 +2,7 @@
 // src/modules/media/media.controller.ts
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MediaController = void 0;
+const videoProcessing_queue_1 = require("../../config/videoProcessing.queue");
 class MediaController {
     constructor(mediaService) {
         this.mediaService = mediaService;
@@ -31,11 +32,51 @@ class MediaController {
                 return;
             }
             let mediaUrl;
+            let thumbnailUrl;
             if (mimetype.startsWith('image/')) {
                 mediaUrl = await this.mediaService.uploadImage(buffer, filename, mimetype);
             }
             else if (mimetype.startsWith('video/')) {
-                mediaUrl = await this.mediaService.uploadVideo(buffer, filename, mimetype);
+                const query = request.query;
+                const asyncMode = query?.async === 'true' ||
+                    query?.async === '1' ||
+                    request.headers['x-video-processing'] === 'async';
+                if (asyncMode) {
+                    const ownerId = request.headers['x-user-id'] ||
+                        query?.owner_id ||
+                        'ads';
+                    const campaignId = query?.campaign_id || query?.campaignId || null;
+                    const priority = query?.priority ? Number(query.priority) : Number(process.env.ADS_VIDEO_JOB_PRIORITY || 1);
+                    const raw = await this.mediaService.uploadRawVideo(buffer, filename, mimetype, ownerId);
+                    const job = await (0, videoProcessing_queue_1.addAdsVideoProcessingJob)({
+                        source: 'ads',
+                        rawBucket: raw.bucket,
+                        outputBucket: 'ads-media',
+                        outputPrefix: 'videos',
+                        thumbnailPrefix: 'thumbnails',
+                        rawPath: raw.path,
+                        rawUrl: raw.rawUrl,
+                        originalFilename: filename,
+                        ownerId,
+                        campaignId,
+                    }, Number.isFinite(priority) ? priority : 1);
+                    reply.code(202).send({
+                        success: true,
+                        status: 'processing',
+                        data: {
+                            jobId: job.id,
+                            rawUrl: raw.rawUrl,
+                            bucket: raw.bucket,
+                            path: raw.path,
+                            mediaType: 'video',
+                            campaignId,
+                        },
+                    });
+                    return;
+                }
+                const uploaded = await this.mediaService.uploadVideo(buffer, filename, mimetype);
+                mediaUrl = uploaded.mediaUrl;
+                thumbnailUrl = uploaded.thumbnailUrl;
             }
             else {
                 reply.code(400).send({
@@ -48,12 +89,20 @@ class MediaController {
             reply.header('Access-Control-Allow-Origin', '*');
             reply.header('Access-Control-Allow-Headers', 'Range, Content-Type');
             reply.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-            reply.send({ success: true, data: { mediaUrl } });
+            reply.send({ success: true, data: { mediaUrl, thumbnailUrl } });
         }
         catch (error) {
             console.error('Upload error:', error);
             reply.code(500).send({ success: false, error: error.message });
         }
+    }
+    async getUploadJob(request, reply) {
+        const job = await (0, videoProcessing_queue_1.getVideoProcessingJobStatus)(request.params.id);
+        if (!job) {
+            reply.code(404).send({ success: false, error: 'Upload job not found' });
+            return;
+        }
+        reply.send({ success: true, data: job });
     }
     async deleteMedia(request, reply) {
         try {
