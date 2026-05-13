@@ -300,6 +300,8 @@ class DeliveryService {
                     `https://via.placeholder.com/300x200?text=${encodeURIComponent(campaign.title)}`,
                 description: campaign.description,
                 views_count: await this.getAdViewsCount(campaign.id),
+                likes_count: campaign.likes_count ?? campaign.likes ?? 0,
+                comments_count: campaign.comments_count ?? 0,
             })));
             return ads;
         }

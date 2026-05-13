@@ -108,6 +108,121 @@ class AnalyticsService {
             limit,
         };
     }
+    async getViewsCount(adId) {
+        const { count, error } = await this.supabase
+            .from('ads_views')
+            .select('*', { count: 'exact', head: true })
+            .eq('ad_id', adId);
+        if (error)
+            throw error;
+        return count || 0;
+    }
+    async recordLike(adId, payload = {}) {
+        await this.ensureCampaignExists(adId);
+        // Check if already liked
+        const { data: existingLike } = await this.supabase
+            .from('ads_likes')
+            .select('*')
+            .eq('ad_id', adId)
+            .eq('user_id', payload.user_id ?? null)
+            .maybeSingle();
+        if (existingLike) {
+            throw new Error('Ad already liked by this user');
+        }
+        const now = new Date().toISOString();
+        const { data, error } = await this.supabase
+            .from('ads_likes')
+            .insert({
+            id: (0, crypto_1.randomUUID)(),
+            ad_id: adId,
+            user_id: payload.user_id ?? null,
+            date_liked: now,
+        })
+            .select()
+            .single();
+        if (error)
+            throw error;
+        return data;
+    }
+    async removeLike(adId, payload = {}) {
+        const { error } = await this.supabase
+            .from('ads_likes')
+            .delete()
+            .eq('ad_id', adId)
+            .eq('user_id', payload.user_id ?? null);
+        if (error)
+            throw error;
+    }
+    async getLikes(adId, limit = 20, page = 1) {
+        const offset = (page - 1) * limit;
+        const { data, error, count } = await this.supabase
+            .from('ads_likes')
+            .select('*', { count: 'exact' })
+            .eq('ad_id', adId)
+            .order('date_liked', { ascending: false })
+            .range(offset, offset + limit - 1);
+        if (error)
+            throw error;
+        return {
+            data: (data || []),
+            total: count || 0,
+            page,
+            limit,
+        };
+    }
+    async getLikesCount(adId) {
+        const { count, error } = await this.supabase
+            .from('ads_likes')
+            .select('*', { count: 'exact', head: true })
+            .eq('ad_id', adId);
+        if (error)
+            throw error;
+        return count || 0;
+    }
+    async postComment(adId, payload) {
+        await this.ensureCampaignExists(adId);
+        const now = new Date().toISOString();
+        const { data, error } = await this.supabase
+            .from('ads_comments')
+            .insert({
+            id: (0, crypto_1.randomUUID)(),
+            ad_id: adId,
+            user_id: payload.user_id ?? null,
+            content: payload.content,
+            date_comment: now,
+        })
+            .select()
+            .single();
+        if (error)
+            throw error;
+        return data;
+    }
+    async getComments(adId, limit = 20, page = 1) {
+        const offset = (page - 1) * limit;
+        const { data, error, count } = await this.supabase
+            .from('ads_comments')
+            .select('*', { count: 'exact' })
+            .eq('ad_id', adId)
+            .order('date_comment', { ascending: false })
+            .range(offset, offset + limit - 1);
+        if (error)
+            throw error;
+        return {
+            data: (data || []),
+            total: count || 0,
+            page,
+            limit,
+        };
+    }
+    async getCommentsCount(adId) {
+        const { count, error } = await this.supabase
+            .from('ads_comments')
+            .select('*', { count: 'exact', head: true })
+            .eq('ad_id', adId);
+        if (error)
+            throw error;
+        return count || 0;
+    }
     async ensureCampaignExists(adId) {
         const { data, error } = await this.supabase
             .from('ads_campaigns')

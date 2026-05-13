@@ -81,7 +81,7 @@ const broadcastCampaignNotifications = async (userIds, campaignId, campaignName,
             },
         };
         const response = await axios_1.default.post(`${notificationServiceUrl}/api/notifications/broadcast`, payload, {
-            timeout: notificationServiceTimeoutMs,
+            timeout: 60000, // 60 seconds
             headers: {
                 'Content-Type': 'application/json',
             },

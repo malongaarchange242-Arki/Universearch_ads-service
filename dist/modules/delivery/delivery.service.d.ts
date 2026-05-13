@@ -15,6 +15,8 @@ export interface ShortsAd {
     title: string;
     description?: string;
     views_count?: number;
+    likes_count?: number;
+    comments_count?: number;
 }
 interface UserProfile {
     gender?: string;
