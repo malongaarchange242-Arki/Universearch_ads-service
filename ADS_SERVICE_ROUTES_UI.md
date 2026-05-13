@@ -96,16 +96,18 @@ GET /ads/shorts?limit=10&userId=user123&category=formations
 ```json
 {
   "ads": [
-    
     {
       "id": "short-uuid-2",
       "campaignId": "camp-uuid-4",
       "title": "Suite de notre présentation",
       "description": "Continuez la visite virtuelle",
-      "videoUrl": "https://storage.example.com/media/ad-short-2.mp4",
-      "duration": 20,
+      "video": "https://storage.example.com/media/ad-short-2.mp4",
       "clickUrl": "https://universearch.com/programs",
-      "thumbnail": "https://storage.example.com/media/ad-short-2-thumb.jpg"
+      "thumbnail": "https://storage.example.com/media/ad-short-2-thumb.jpg",
+      "ad_type": "sponsored",
+      "views_count": 1200,
+      "likes_count": 250,
+      "comments_count": 16
     }
   ],
   "total": 1

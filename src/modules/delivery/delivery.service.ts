@@ -14,10 +14,13 @@ export interface CarouselAd {
 
 export interface ShortsAd {
   id: string;
+  campaignId?: string;
   video: string;
   thumbnail: string;
   title: string;
   description?: string;
+  clickUrl?: string;
+  ad_type?: string;
   views_count?: number;
   likes_count?: number;
   comments_count?: number;
@@ -256,6 +259,44 @@ export class DeliveryService {
     }
   }
 
+  private async getAdLikesCount(adId: string): Promise<number> {
+    try {
+      const { count, error } = await this.supabase
+        .from('ads_likes')
+        .select('id', { count: 'exact', head: true })
+        .eq('ad_id', adId);
+
+      if (error) {
+        console.warn(`Failed to fetch ad likes count for ${adId}: ${error.message}`);
+        return 0;
+      }
+
+      return count || 0;
+    } catch (error) {
+      console.warn(`Failed to fetch ad likes count for ${adId}: ${(error as Error).message}`);
+      return 0;
+    }
+  }
+
+  private async getAdCommentsCount(adId: string): Promise<number> {
+    try {
+      const { count, error } = await this.supabase
+        .from('ads_comments')
+        .select('id', { count: 'exact', head: true })
+        .eq('ad_id', adId);
+
+      if (error) {
+        console.warn(`Failed to fetch ad comments count for ${adId}: ${error.message}`);
+        return 0;
+      }
+
+      return count || 0;
+    } catch (error) {
+      console.warn(`Failed to fetch ad comments count for ${adId}: ${(error as Error).message}`);
+      return 0;
+    }
+  }
+
   /**
    * Ignore les placeholders et les URLs non exploitables pour le carousel.
    */
@@ -434,15 +475,18 @@ export class DeliveryService {
       const ads: ShortsAd[] = await Promise.all(
         limitedCampaigns.map(async (campaign) => ({
           id: campaign.id,
+          campaignId: campaign.id,
           title: campaign.title,
           video: campaign.media_url || '',
           thumbnail:
             campaign.thumbnail_url ||
             `https://via.placeholder.com/300x200?text=${encodeURIComponent(campaign.title)}`,
           description: campaign.description,
+          clickUrl: campaign.click_url || '',
+          ad_type: campaign.ad_type || 'sponsored',
           views_count: await this.getAdViewsCount(campaign.id),
-          likes_count: campaign.likes_count ?? campaign.likes ?? 0,
-          comments_count: campaign.comments_count ?? 0,
+          likes_count: await this.getAdLikesCount(campaign.id),
+          comments_count: await this.getAdCommentsCount(campaign.id),
         }))
       );
 

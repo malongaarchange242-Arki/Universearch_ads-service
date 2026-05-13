@@ -308,9 +308,14 @@ Toutes les routes de livraison sont préfixées par `/ads`.
       "id": "uuid",
       "campaignId": "uuid",
       "title": "Annonce courte",
-      "videoUrl": "https://storage.example.com/media/uuid.mp4",
-      "duration": 15,
-      "clickUrl": "https://example.com"
+      "video": "https://storage.example.com/media/uuid.mp4",
+      "thumbnail": "https://storage.example.com/media/uuid.jpg",
+      "description": "Brève description de l'annonce",
+      "clickUrl": "https://example.com",
+      "ad_type": "sponsored",
+      "views_count": 1200,
+      "likes_count": 250,
+      "comments_count": 16
     }
   ],
   "total": 1
