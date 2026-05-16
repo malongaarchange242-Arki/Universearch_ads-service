@@ -47,10 +47,10 @@ export declare class DeliveryService {
      */
     private matchesUserProfile;
     /**
-     * Récupère les annonces pour le carousel (limité à 3 APRÈS filtrage)
+     * Récupère les annonces pour le carousel (limité à 7 APRÈS filtrage par défaut)
      * ✅ CORRECT: FETCH → FILTER → LIMIT
      */
-    getCarouselAds(userProfile?: UserProfile): Promise<CarouselAd[]>;
+    getCarouselAds(userProfile?: UserProfile, limit?: number | null): Promise<CarouselAd[]>;
     /**
      * Récupère les annonces pour les shorts (limité à 3 APRÈS filtrage)
      * ✅ CORRECT: FETCH → FILTER → LIMIT

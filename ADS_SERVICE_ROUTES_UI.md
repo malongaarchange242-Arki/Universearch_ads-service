@@ -412,7 +412,7 @@ adManager.loadShortsAds('formations').then(data => {
 ```javascript
 // Récupérer les annonces pertinentes selon les intérêts de l'utilisateur
 const ads = await fetch(
-  'http://localhost:3005/ads/carousel?limit=3&userId=user-123&interests=bourses,formations'
+  'http://localhost:3005/ads/carousel?limit=7&userId=user-123&interests=bourses,formations'
 );
 ```
 

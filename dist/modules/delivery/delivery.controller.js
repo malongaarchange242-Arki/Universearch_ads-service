@@ -6,18 +6,18 @@ class DeliveryController {
     constructor(deliveryService) {
         this.deliveryService = deliveryService;
     }
-    parseRequestedLimit(query) {
+    parseRequestedLimit(query, defaultLimit = 3) {
         const all = String(query.all || '').trim().toLowerCase();
         if (all === '1' || all === 'true' || all === 'yes') {
             return null;
         }
         const rawLimit = query.limit;
         if (rawLimit === undefined || rawLimit === null || rawLimit === '') {
-            return 3;
+            return defaultLimit;
         }
         const parsedLimit = parseInt(String(rawLimit), 10);
         if (!Number.isFinite(parsedLimit) || parsedLimit <= 0) {
-            return 3;
+            return defaultLimit;
         }
         return parsedLimit;
     }
@@ -66,8 +66,10 @@ class DeliveryController {
             const userProfile = this.parseUserProfile(request.query);
             console.log('[Controller.getCarousel] Parsed user profile:', userProfile);
             console.log('[Controller.getCarousel] Gender after normalization:', userProfile.gender || 'none');
+            const limit = this.parseRequestedLimit(request.query, 7);
+            console.log('[Controller.getCarousel] Requested limit:', limit ?? 'all');
             console.log('[Controller.getCarousel] STEP 2 - Calling service');
-            const ads = await this.deliveryService.getCarouselAds(userProfile);
+            const ads = await this.deliveryService.getCarouselAds(userProfile, limit);
             console.log('[Controller.getCarousel] STEP 3 - Got response, ads count:', ads.length);
             reply.send({ ads: ads, targetingFiltered: Object.keys(userProfile).length > 0 });
             console.log('[Controller.getCarousel] STEP 4 - Response sent');
