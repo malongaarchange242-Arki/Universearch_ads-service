@@ -10,6 +10,9 @@ import * as ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 
 ffmpeg.setFfmpegPath(process.env.FFMPEG_PATH || ffmpegInstaller.path);
 
+const DEFAULT_FFMPEG_TIMEOUT_MS = Number(process.env.FFMPEG_TIMEOUT_MS || 120_000); // 2 minutes default
+const FFMPEG_MAX_RETRIES = Number(process.env.FFMPEG_MAX_RETRIES || 1);
+
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm'];
 
@@ -150,9 +153,11 @@ export class MediaService {
 
     fs.writeFileSync(tempInputPath, inputBuffer);
 
-    return new Promise((resolve, reject) => {
-      const command = ffmpeg(tempInputPath)
-        .outputOptions([
+    return new Promise(async (resolve, reject) => {
+      const tryRun = async (): Promise<Buffer> => {
+        return new Promise<Buffer>((innerResolve, innerReject) => {
+          const command = ffmpeg(tempInputPath)
+            .outputOptions([
           '-c:v libx264',
           '-preset veryfast',
           '-crf 23',
@@ -166,32 +171,55 @@ export class MediaService {
           '-pix_fmt yuv420p',
           "-vf scale='trunc(min(1280,iw)/2)*2':-2",
         ])
-        .output(tempOutputPath);
+            .output(tempOutputPath);
 
-      let timedOut = false;
-      const timeoutMs = Number(process.env.FFMPEG_TIMEOUT_MS || 60_000);
-      const timeout = setTimeout(() => {
-        timedOut = true;
-        command.kill('SIGKILL');
-      }, timeoutMs);
+          let timedOut = false;
+          const timeoutMs = DEFAULT_FFMPEG_TIMEOUT_MS;
+          const timeout = setTimeout(() => {
+            timedOut = true;
+            try {
+              command.kill('SIGKILL');
+            } catch (_) {}
+          }, timeoutMs);
 
-      command
-        .on('end', () => {
-          clearTimeout(timeout);
-          const outputBuffer = fs.readFileSync(tempOutputPath);
-          this.cleanupFiles(tempInputPath, tempOutputPath);
-          resolve(outputBuffer);
-        })
-        .on('error', (err: Error) => {
-          clearTimeout(timeout);
-          this.cleanupFiles(tempInputPath, tempOutputPath);
-          if (timedOut) {
-            reject(new Error(`FFmpeg normalization timed out after ${timeoutMs}ms`));
-          } else {
-            reject(new Error(`FFmpeg normalization failed: ${err.message}`));
-          }
-        })
-        .run();
+          command
+            .on('end', () => {
+              clearTimeout(timeout);
+              try {
+                const outputBuffer = fs.readFileSync(tempOutputPath);
+                this.cleanupFiles(tempInputPath, tempOutputPath);
+                innerResolve(outputBuffer);
+              } catch (err) {
+                innerReject(err);
+              }
+            })
+            .on('error', (err: Error) => {
+              clearTimeout(timeout);
+              this.cleanupFiles(tempInputPath, tempOutputPath);
+              if (timedOut) {
+                innerReject(new Error(`FFmpeg normalization timed out after ${timeoutMs}ms`));
+              } else {
+                innerReject(new Error(`FFmpeg normalization failed: ${err.message}`));
+              }
+            })
+            .run();
+        });
+      };
+
+      let lastErr: Error | null = null;
+      for (let attempt = 1; attempt <= Math.max(1, FFMPEG_MAX_RETRIES); attempt++) {
+        try {
+          const buf = await tryRun();
+          resolve(buf);
+          return;
+        } catch (err: any) {
+          lastErr = err;
+          if (attempt === Math.max(1, FFMPEG_MAX_RETRIES)) break;
+          await new Promise(r => setTimeout(r, 500 * attempt));
+        }
+      }
+
+      reject(lastErr || new Error('FFmpeg normalization failed'));
     });
   }
 
@@ -201,40 +229,65 @@ export class MediaService {
 
     fs.writeFileSync(tempInputPath, inputBuffer);
 
-    return new Promise((resolve, reject) => {
-      const command = ffmpeg(tempInputPath)
-        .seekInput('00:00:01')
-        .outputOptions([
-          '-frames:v 1',
-          '-vf thumbnail,scale=720:-2',
-          '-q:v 3',
-        ])
-        .output(tempOutputPath);
+    return new Promise(async (resolve, reject) => {
+      const tryRun = async (): Promise<Buffer> => {
+        return new Promise<Buffer>((innerResolve, innerReject) => {
+          const command = ffmpeg(tempInputPath)
+            .seekInput('00:00:01')
+            .outputOptions([
+              '-frames:v 1',
+              '-vf thumbnail,scale=720:-2',
+              '-q:v 3',
+            ])
+            .output(tempOutputPath);
 
-      let timedOut = false;
-      const timeoutMs = Number(process.env.FFMPEG_TIMEOUT_MS || 60_000);
-      const timeout = setTimeout(() => {
-        timedOut = true;
-        command.kill('SIGKILL');
-      }, timeoutMs);
+          let timedOut = false;
+          const timeoutMs = DEFAULT_FFMPEG_TIMEOUT_MS;
+          const timeout = setTimeout(() => {
+            timedOut = true;
+            try {
+              command.kill('SIGKILL');
+            } catch (_) {}
+          }, timeoutMs);
 
-      command
-        .on('end', () => {
-          clearTimeout(timeout);
-          const outputBuffer = fs.readFileSync(tempOutputPath);
-          this.cleanupFiles(tempInputPath, tempOutputPath);
-          resolve(outputBuffer);
-        })
-        .on('error', (err: Error) => {
-          clearTimeout(timeout);
-          this.cleanupFiles(tempInputPath, tempOutputPath);
-          if (timedOut) {
-            reject(new Error(`FFmpeg thumbnail generation timed out after ${timeoutMs}ms`));
-          } else {
-            reject(new Error(`FFmpeg thumbnail generation failed: ${err.message}`));
-          }
-        })
-        .run();
+          command
+            .on('end', () => {
+              clearTimeout(timeout);
+              try {
+                const outputBuffer = fs.readFileSync(tempOutputPath);
+                this.cleanupFiles(tempInputPath, tempOutputPath);
+                innerResolve(outputBuffer);
+              } catch (err) {
+                innerReject(err);
+              }
+            })
+            .on('error', (err: Error) => {
+              clearTimeout(timeout);
+              this.cleanupFiles(tempInputPath, tempOutputPath);
+              if (timedOut) {
+                innerReject(new Error(`FFmpeg thumbnail generation timed out after ${timeoutMs}ms`));
+              } else {
+                innerReject(new Error(`FFmpeg thumbnail generation failed: ${err.message}`));
+              }
+            })
+            .run();
+        });
+      };
+
+      let lastErr: Error | null = null;
+      for (let attempt = 1; attempt <= Math.max(1, FFMPEG_MAX_RETRIES); attempt++) {
+        try {
+          const buf = await tryRun();
+          resolve(buf);
+          return;
+        } catch (err: any) {
+          lastErr = err;
+          if (attempt === Math.max(1, FFMPEG_MAX_RETRIES)) break;
+          await new Promise(r => setTimeout(r, 200 * attempt));
+        }
+      }
+
+      reject(lastErr || new Error('FFmpeg thumbnail generation failed'));
     });
   }
 

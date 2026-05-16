@@ -71,12 +71,17 @@ class MediaController {
                             mediaType: 'video',
                             campaignId,
                         },
-                    });
-                    return;
+                    }
                 }
-                const uploaded = await this.mediaService.uploadVideo(buffer, filename, mimetype);
-                mediaUrl = uploaded.mediaUrl;
-                thumbnailUrl = uploaded.thumbnailUrl;
+            } catch (error) {
+                console.error('Upload error:', error);
+                const msg = (error && error.message) ? error.message : String(error);
+                if (String(msg).toLowerCase().includes('timed out') || String(msg).toLowerCase().includes('ffmpeg')) {
+                    reply.code(504).send({ success: false, error: 'Video processing timed out. Try increasing FFMPEG_TIMEOUT_MS or processing asynchronously.' });
+                } else {
+                    reply.code(500).send({ success: false, error: msg });
+                }
+            }
             }
             else {
                 reply.code(400).send({

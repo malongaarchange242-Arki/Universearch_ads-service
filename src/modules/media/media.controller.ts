@@ -108,7 +108,12 @@ export class MediaController {
       reply.send({ success: true, data: { mediaUrl, thumbnailUrl } });
     } catch (error) {
       console.error('Upload error:', error);
-      reply.code(500).send({ success: false, error: (error as Error).message });
+      const msg = (error as Error).message || '';
+      if (msg.toLowerCase().includes('timed out') || msg.toLowerCase().includes('ffmpeg')) {
+        reply.code(504).send({ success: false, error: 'Video processing timed out. Try increasing FFMPEG_TIMEOUT_MS or processing asynchronously.' });
+      } else {
+        reply.code(500).send({ success: false, error: msg });
+      }
     }
   }
 

@@ -177,7 +177,7 @@ class MediaService {
             ])
                 .output(tempOutputPath);
             let timedOut = false;
-            const timeoutMs = Number(process.env.FFMPEG_TIMEOUT_MS || 60000);
+            const timeoutMs = Number(process.env.FFMPEG_TIMEOUT_MS || 120000);
             const timeout = setTimeout(() => {
                 timedOut = true;
                 command.kill('SIGKILL');
@@ -216,7 +216,7 @@ class MediaService {
             ])
                 .output(tempOutputPath);
             let timedOut = false;
-            const timeoutMs = Number(process.env.FFMPEG_TIMEOUT_MS || 60000);
+            const timeoutMs = Number(process.env.FFMPEG_TIMEOUT_MS || 120000);
             const timeout = setTimeout(() => {
                 timedOut = true;
                 command.kill('SIGKILL');
