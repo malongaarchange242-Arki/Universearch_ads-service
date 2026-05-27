@@ -4,7 +4,7 @@ import axios from 'axios';
 import { SupabaseClient } from '@supabase/supabase-js';
 
 const DEFAULT_NOTIFICATION_SERVICE_URL =
-  'https://universearch-notification-service.onrender.com';
+  'https://universearch-notification-service-3zw2.onrender.com';
 
 export interface CampaignNotificationPayload {
   user_ids: string[];
