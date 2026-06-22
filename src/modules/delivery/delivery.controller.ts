@@ -14,7 +14,7 @@ interface UserProfile {
 export class DeliveryController {
   constructor(private deliveryService: DeliveryService) {}
 
-  private parseRequestedLimit(query: Record<string, any>, defaultLimit = 3): number | null {
+  private parseRequestedLimit(query: Record<string, any>, defaultLimit: number | null = 3): number | null {
     const all = String(query.all || '').trim().toLowerCase();
     if (all === '1' || all === 'true' || all === 'yes') {
       return null;
@@ -106,10 +106,10 @@ export class DeliveryController {
 
       const rawQuery = request.query as Record<string, any>;
       const userProfile = this.parseUserProfile(rawQuery);
-      const limit = this.parseRequestedLimit(rawQuery);
+      const limit = this.parseRequestedLimit(rawQuery, null); // ← No default limit
       console.log('[Controller.getShorts] Parsed user profile:', userProfile);
       console.log('[Controller.getShorts] Gender after normalization:', userProfile.gender || 'none');
-      console.log('[Controller.getShorts] Requested limit:', limit ?? 'all');
+      console.log('[Controller.getShorts] Requested limit:', limit ?? 'all (no limit)');
 
       console.log('[Controller.getShorts] STEP 2 - Calling service');
       const ads = await this.deliveryService.getShortsAds(userProfile, limit);

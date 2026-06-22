@@ -160,6 +160,40 @@ class DeliveryService {
             return 0;
         }
     }
+    async getAdLikesCount(adId) {
+        try {
+            const { count, error } = await this.supabase
+                .from('ads_likes')
+                .select('id', { count: 'exact', head: true })
+                .eq('ad_id', adId);
+            if (error) {
+                console.warn(`Failed to fetch ad likes count for ${adId}: ${error.message}`);
+                return 0;
+            }
+            return count || 0;
+        }
+        catch (error) {
+            console.warn(`Failed to fetch ad likes count for ${adId}: ${error.message}`);
+            return 0;
+        }
+    }
+    async getAdCommentsCount(adId) {
+        try {
+            const { count, error } = await this.supabase
+                .from('ads_comments')
+                .select('id', { count: 'exact', head: true })
+                .eq('ad_id', adId);
+            if (error) {
+                console.warn(`Failed to fetch ad comments count for ${adId}: ${error.message}`);
+                return 0;
+            }
+            return count || 0;
+        }
+        catch (error) {
+            console.warn(`Failed to fetch ad comments count for ${adId}: ${error.message}`);
+            return 0;
+        }
+    }
     /**
      * Ignore les placeholders et les URLs non exploitables pour le carousel.
      */
@@ -189,23 +223,35 @@ class DeliveryService {
             }
         }
         // Gender matching
-        if (campaign.target_gender && campaign.target_gender !== userProfile.gender) {
-            console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: gender mismatch (ad="${campaign.target_gender}", user="${userProfile.gender}")`);
-            return false;
+        const campaignGender = this.normalizeGender(String(campaign.target_gender || '').trim().toLowerCase());
+        if (campaignGender && !['all', 'tous', 'toutes'].includes(campaignGender)) {
+            const userGender = this.normalizeGender(userProfile.gender);
+            if (!userGender || userGender !== campaignGender) {
+                console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: gender mismatch (ad="${campaignGender}", user="${userProfile.gender}")`);
+                return false;
+            }
         }
         // User type matching (bachelier / etudiant / parent)
-        if (campaign.target_user_type && campaign.target_user_type !== userProfile.user_type) {
-            console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: user_type mismatch (ad="${campaign.target_user_type}", user="${userProfile.user_type}")`);
-            return false;
+        const campaignUserType = String(campaign.target_user_type || '').trim().toLowerCase();
+        if (campaignUserType && !['all', 'tous', 'toutes'].includes(campaignUserType)) {
+            const userType = String(userProfile.user_type || '').trim().toLowerCase();
+            if (!userType || userType !== campaignUserType) {
+                console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: user_type mismatch (ad="${campaignUserType}", user="${userProfile.user_type}")`);
+                return false;
+            }
         }
         // Age matching
         if (!this.matchesAgeTargeting(campaign, userProfile)) {
             return false;
         }
         // Location matching
-        if (campaign.location && campaign.location !== userProfile.location) {
-            console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: location mismatch`);
-            return false;
+        const campaignLocation = String(campaign.location || '').trim().toLowerCase();
+        if (campaignLocation && !['all', 'tous', 'toutes'].includes(campaignLocation)) {
+            const userLocation = String(userProfile.location || '').trim().toLowerCase();
+            if (!userLocation || userLocation !== campaignLocation) {
+                console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: location mismatch (ad="${campaignLocation}", user="${userProfile.location}")`);
+                return false;
+            }
         }
         console.log(`[matchesUserProfile] Ad ${campaign.id} PASSED filtering`);
         return true;
@@ -260,10 +306,10 @@ class DeliveryService {
         }
     }
     /**
-     * Récupère les annonces pour les shorts (limité à 3 APRÈS filtrage)
+     * Récupère les annonces pour les shorts (SANS limite par défaut)
      * ✅ CORRECT: FETCH → FILTER → LIMIT
      */
-    async getShortsAds(userProfile = {}, limit = 3) {
+    async getShortsAds(userProfile = {}, limit = null) {
         try {
             const resolvedUserProfile = await this.enrichUserProfile(userProfile);
             // 1️⃣ FETCH: Récupérer TOUTES les annonces
@@ -294,14 +340,17 @@ class DeliveryService {
             // Map to ShortsAd interface
             const ads = await Promise.all(limitedCampaigns.map(async (campaign) => ({
                 id: campaign.id,
+                campaignId: campaign.id,
                 title: campaign.title,
                 video: campaign.media_url || '',
                 thumbnail: campaign.thumbnail_url ||
                     `https://via.placeholder.com/300x200?text=${encodeURIComponent(campaign.title)}`,
                 description: campaign.description,
+                clickUrl: campaign.click_url || '',
+                ad_type: campaign.ad_type || 'sponsored',
                 views_count: await this.getAdViewsCount(campaign.id),
-                likes_count: campaign.likes_count ?? campaign.likes ?? 0,
-                comments_count: campaign.comments_count ?? 0,
+                likes_count: await this.getAdLikesCount(campaign.id),
+                comments_count: await this.getAdCommentsCount(campaign.id),
             })));
             return ads;
         }

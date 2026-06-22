@@ -6,6 +6,8 @@ export interface Campaign {
     media_url?: string;
     media_type?: 'image' | 'video';
     destination?: 'carousel' | 'shorts';
+    carousel_slot?: number;
+    click_url?: string;
     target_gender?: string;
     target_user_type?: string;
     target_users?: string[];

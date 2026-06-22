@@ -8,6 +8,105 @@ class CampaignService {
         this.supabase = supabase;
     }
     async createCampaign(campaign) {
+        if (campaign.destination === 'carousel') {
+            const slotToUse = campaign.carousel_slot;
+            if (slotToUse !== undefined) {
+                const { data: existingCampaign, error: fetchError } = await this.supabase
+                    .from('ads_campaigns')
+                    .select('*')
+                    .eq('destination', 'carousel')
+                    .eq('carousel_slot', slotToUse)
+                    .maybeSingle();
+                if (fetchError) {
+                    throw fetchError;
+                }
+                if (existingCampaign) {
+                    const updates = {
+                        title: campaign.title,
+                        description: campaign.description,
+                        media_url: campaign.media_url,
+                        media_type: campaign.media_type,
+                        click_url: campaign.click_url,
+                        target_user_type: campaign.target_user_type,
+                        target_users: campaign.target_users,
+                        min_age: campaign.min_age,
+                        max_age: campaign.max_age,
+                        target_age: campaign.target_age,
+                        age_tolerance: campaign.age_tolerance,
+                        location: campaign.location,
+                        status: campaign.status,
+                        send_notifications: campaign.send_notifications,
+                        notification_message: campaign.notification_message,
+                    };
+                    const { data, error } = await this.supabase
+                        .from('ads_campaigns')
+                        .update(updates)
+                        .eq('destination', 'carousel')
+                        .eq('carousel_slot', slotToUse)
+                        .select()
+                        .single();
+                    if (error) {
+                        throw error;
+                    }
+                    const updatedCampaign = data;
+                    console.log('📱 Carousel slot updated:', updatedCampaign.id);
+                    console.log('   send_notifications:', campaign.send_notifications);
+                    if (campaign.send_notifications) {
+                        setTimeout(async () => {
+                            try {
+                                await this.notifyCampaignLaunch(updatedCampaign, campaign);
+                            }
+                            catch (err) {
+                                console.error('❌ Error in scheduled campaign notification:', err);
+                            }
+                        }, 100);
+                    }
+                    return updatedCampaign;
+                }
+            }
+            const { data: usedSlots, error: usedSlotsError } = await this.supabase
+                .from('ads_campaigns')
+                .select('carousel_slot')
+                .eq('destination', 'carousel');
+            if (usedSlotsError) {
+                throw usedSlotsError;
+            }
+            const occupiedSlots = new Set(Array.isArray(usedSlots)
+                ? usedSlots.map((row) => Number(row.carousel_slot)).filter((v) => Number.isInteger(v))
+                : []);
+            const nextSlot = slotToUse !== undefined
+                ? slotToUse
+                : [1, 2, 3, 4, 5, 6, 7].find((slot) => !occupiedSlots.has(slot));
+            if (nextSlot === undefined) {
+                throw new Error('Toutes les slots carousel 1..7 sont occupées');
+            }
+            const campaignWithSlot = {
+                ...campaign,
+                carousel_slot: nextSlot,
+            };
+            const { data, error } = await this.supabase
+                .from('ads_campaigns')
+                .insert(campaignWithSlot)
+                .select()
+                .single();
+            if (error) {
+                throw error;
+            }
+            const createdCampaign = data;
+            console.log('📱 Carousel campaign created with slot:', createdCampaign.carousel_slot);
+            console.log('   send_notifications:', campaign.send_notifications);
+            if (campaign.send_notifications) {
+                setTimeout(async () => {
+                    try {
+                        await this.notifyCampaignLaunch(createdCampaign, campaign);
+                    }
+                    catch (err) {
+                        console.error('❌ Error in scheduled campaign notification:', err);
+                    }
+                }, 100);
+            }
+            return createdCampaign;
+        }
         const { data, error } = await this.supabase
             .from('ads_campaigns')
             .insert(campaign)

@@ -85,10 +85,10 @@ class DeliveryController {
             console.log('[Controller.getShorts] Raw query params:', request.query);
             const rawQuery = request.query;
             const userProfile = this.parseUserProfile(rawQuery);
-            const limit = this.parseRequestedLimit(rawQuery);
+            const limit = this.parseRequestedLimit(rawQuery, null); // ← No default limit
             console.log('[Controller.getShorts] Parsed user profile:', userProfile);
             console.log('[Controller.getShorts] Gender after normalization:', userProfile.gender || 'none');
-            console.log('[Controller.getShorts] Requested limit:', limit ?? 'all');
+            console.log('[Controller.getShorts] Requested limit:', limit ?? 'all (no limit)');
             console.log('[Controller.getShorts] STEP 2 - Calling service');
             const ads = await this.deliveryService.getShortsAds(userProfile, limit);
             console.log('[Controller.getShorts] STEP 3 - Got response, ads count:', ads.length);

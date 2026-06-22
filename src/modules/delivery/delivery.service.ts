@@ -435,12 +435,12 @@ export class DeliveryService {
   }
 
   /**
-   * Récupère les annonces pour les shorts (limité à 3 APRÈS filtrage)
+   * Récupère les annonces pour les shorts (SANS limite par défaut)
    * ✅ CORRECT: FETCH → FILTER → LIMIT
    */
   async getShortsAds(
     userProfile: UserProfile = {},
-    limit: number | null = 3
+    limit: number | null = null
   ): Promise<ShortsAd[]> {
     try {
       const resolvedUserProfile = await this.enrichUserProfile(userProfile);

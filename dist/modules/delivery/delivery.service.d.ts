@@ -10,10 +10,13 @@ export interface CarouselAd {
 }
 export interface ShortsAd {
     id: string;
+    campaignId?: string;
     video: string;
     thumbnail: string;
     title: string;
     description?: string;
+    clickUrl?: string;
+    ad_type?: string;
     views_count?: number;
     likes_count?: number;
     comments_count?: number;
@@ -38,6 +41,8 @@ export declare class DeliveryService {
     private sanitizeUserProfile;
     private enrichUserProfile;
     private getAdViewsCount;
+    private getAdLikesCount;
+    private getAdCommentsCount;
     /**
      * Ignore les placeholders et les URLs non exploitables pour le carousel.
      */
@@ -52,7 +57,7 @@ export declare class DeliveryService {
      */
     getCarouselAds(userProfile?: UserProfile, limit?: number | null): Promise<CarouselAd[]>;
     /**
-     * Récupère les annonces pour les shorts (limité à 3 APRÈS filtrage)
+     * Récupère les annonces pour les shorts (SANS limite par défaut)
      * ✅ CORRECT: FETCH → FILTER → LIMIT
      */
     getShortsAds(userProfile?: UserProfile, limit?: number | null): Promise<ShortsAd[]>;

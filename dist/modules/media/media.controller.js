@@ -71,17 +71,12 @@ class MediaController {
                             mediaType: 'video',
                             campaignId,
                         },
-                    }
+                    });
+                    return;
                 }
-            } catch (error) {
-                console.error('Upload error:', error);
-                const msg = (error && error.message) ? error.message : String(error);
-                if (String(msg).toLowerCase().includes('timed out') || String(msg).toLowerCase().includes('ffmpeg')) {
-                    reply.code(504).send({ success: false, error: 'Video processing timed out. Try increasing FFMPEG_TIMEOUT_MS or processing asynchronously.' });
-                } else {
-                    reply.code(500).send({ success: false, error: msg });
-                }
-            }
+                const uploaded = await this.mediaService.uploadVideo(buffer, filename, mimetype);
+                mediaUrl = uploaded.mediaUrl;
+                thumbnailUrl = uploaded.thumbnailUrl;
             }
             else {
                 reply.code(400).send({
@@ -98,7 +93,13 @@ class MediaController {
         }
         catch (error) {
             console.error('Upload error:', error);
-            reply.code(500).send({ success: false, error: error.message });
+            const msg = error.message || '';
+            if (msg.toLowerCase().includes('timed out') || msg.toLowerCase().includes('ffmpeg')) {
+                reply.code(504).send({ success: false, error: 'Video processing timed out. Try increasing FFMPEG_TIMEOUT_MS or processing asynchronously.' });
+            }
+            else {
+                reply.code(500).send({ success: false, error: msg });
+            }
         }
     }
     async getUploadJob(request, reply) {
