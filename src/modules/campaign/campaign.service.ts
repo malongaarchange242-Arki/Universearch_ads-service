@@ -14,6 +14,8 @@ export interface Campaign {
   media_url?: string;
   media_type?: 'image' | 'video';
   destination?: 'carousel' | 'shorts';
+  carousel_slot?: number;
+  click_url?: string;
   target_gender?: string;
   target_user_type?: string;
   target_users?: string[];
@@ -34,6 +36,73 @@ export class CampaignService {
   constructor(private supabase: SupabaseClient) {}
 
   async createCampaign(campaign: Omit<Campaign, 'id' | 'created_at'>): Promise<Campaign> {
+    if (campaign.destination === 'carousel') {
+      if (campaign.carousel_slot === undefined) {
+        throw new Error('carousel_slot is required for carousel campaigns');
+      }
+
+      const { data: existingCampaign, error: fetchError } = await this.supabase
+        .from('ads_campaigns')
+        .select('*')
+        .eq('destination', 'carousel')
+        .eq('carousel_slot', campaign.carousel_slot)
+        .maybeSingle();
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      if (!existingCampaign) {
+        throw new Error(`Carousel slot ${campaign.carousel_slot} not found`);
+      }
+
+      const updates: Partial<Campaign> = {
+        title: campaign.title,
+        description: campaign.description,
+        media_url: campaign.media_url,
+        media_type: campaign.media_type,
+        click_url: campaign.click_url,
+        target_user_type: campaign.target_user_type,
+        target_users: campaign.target_users,
+        min_age: campaign.min_age,
+        max_age: campaign.max_age,
+        target_age: campaign.target_age,
+        age_tolerance: campaign.age_tolerance,
+        location: campaign.location,
+        status: campaign.status,
+        send_notifications: campaign.send_notifications,
+        notification_message: campaign.notification_message,
+      };
+
+      const { data, error } = await this.supabase
+        .from('ads_campaigns')
+        .update(updates)
+        .eq('destination', 'carousel')
+        .eq('carousel_slot', campaign.carousel_slot)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      const updatedCampaign = data as Campaign;
+      console.log('📱 Carousel slot updated:', updatedCampaign.id);
+      console.log('   send_notifications:', campaign.send_notifications);
+
+      if (campaign.send_notifications) {
+        setTimeout(async () => {
+          try {
+            await this.notifyCampaignLaunch(updatedCampaign, campaign);
+          } catch (err) {
+            console.error('❌ Error in scheduled campaign notification:', err);
+          }
+        }, 100);
+      }
+
+      return updatedCampaign;
+    }
+
     const { data, error } = await this.supabase
       .from('ads_campaigns')
       .insert(campaign)

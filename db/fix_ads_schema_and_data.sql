@@ -12,6 +12,15 @@ ADD COLUMN IF NOT EXISTS click_url text;
 
 -- Ajouter les nouveaux champs de ciblage d'age
 ALTER TABLE ads_campaigns
+ADD COLUMN IF NOT EXISTS carousel_slot integer;
+
+ALTER TABLE ads_campaigns
+ADD CONSTRAINT IF NOT EXISTS ads_carousel_slot_unique UNIQUE (carousel_slot);
+
+ALTER TABLE ads_campaigns
+ADD CONSTRAINT IF NOT EXISTS ads_carousel_slot_valid CHECK ((destination <> 'carousel' AND carousel_slot IS NULL) OR (destination = 'carousel' AND carousel_slot BETWEEN 1 AND 7));
+
+ALTER TABLE ads_campaigns
 ADD COLUMN IF NOT EXISTS max_age integer;
 
 ALTER TABLE ads_campaigns
@@ -37,6 +46,7 @@ INSERT INTO ads_campaigns (
   click_url,
   media_type,
   destination,
+  carousel_slot,
   status
 ) VALUES (
   'Découvrez votre filière idéale',
@@ -45,6 +55,7 @@ INSERT INTO ads_campaigns (
   'https://universearch.app/orientation',
   'image',
   'carousel',
+  1,
   'active'
 )
 ON CONFLICT DO NOTHING;
@@ -57,6 +68,7 @@ INSERT INTO ads_campaigns (
   click_url,
   media_type,
   destination,
+  carousel_slot,
   status
 ) VALUES (
   'Explorez les universités',
@@ -65,6 +77,7 @@ INSERT INTO ads_campaigns (
   'https://universearch.app/universites',
   'image',
   'carousel',
+  2,
   'active'
 )
 ON CONFLICT DO NOTHING;
@@ -77,6 +90,7 @@ INSERT INTO ads_campaigns (
   click_url,
   media_type,
   destination,
+  carousel_slot,
   status
 ) VALUES (
   'Formations professionnelles',
@@ -85,6 +99,7 @@ INSERT INTO ads_campaigns (
   'https://universearch.app/centres',
   'image',
   'carousel',
+  3,
   'active'
 )
 ON CONFLICT DO NOTHING;

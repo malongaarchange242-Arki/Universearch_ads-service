@@ -6,6 +6,7 @@ CREATE TABLE ads_campaigns (
   media_url text,
   media_type text CHECK (media_type IN ('image', 'video')),
   destination text CHECK (destination IN ('carousel', 'shorts')),
+  carousel_slot int,
   target_gender text,
   target_user_type text,
   target_users text[],
@@ -15,7 +16,9 @@ CREATE TABLE ads_campaigns (
   age_tolerance int,
   location text,
   status text DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-  created_at timestamp DEFAULT now()
+  created_at timestamp DEFAULT now(),
+  CONSTRAINT ads_carousel_slot_unique UNIQUE (carousel_slot),
+  CONSTRAINT ads_carousel_slot_valid CHECK ((destination <> 'carousel' AND carousel_slot IS NULL) OR (destination = 'carousel' AND carousel_slot BETWEEN 1 AND 7))
 );
 
 -- Ads Statistics Table

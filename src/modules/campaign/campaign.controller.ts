@@ -15,6 +15,7 @@ const baseCampaignSchema = z.object({
   target_gender: z.string().optional(),
   target_user_type: z.string().optional(),
   target_users: z.array(z.string()).optional(),
+  carousel_slot: z.number().int().min(1).max(7).optional(),
   min_age: ageFieldSchema,
   max_age: ageFieldSchema,
   target_age: ageFieldSchema,
@@ -61,8 +62,41 @@ function validateAgeTargeting(
   }
 }
 
-const campaignSchema = baseCampaignSchema.superRefine(validateAgeTargeting);
-const campaignUpdateSchema = baseCampaignSchema.partial().superRefine(validateAgeTargeting);
+const campaignSchema = baseCampaignSchema.superRefine((data, ctx) => {
+  validateAgeTargeting(data, ctx);
+  if (data.destination === 'carousel' && data.carousel_slot === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['carousel_slot'],
+      message: 'carousel_slot is required for carousel destination',
+    });
+  }
+  if (data.destination !== 'carousel' && data.carousel_slot !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['carousel_slot'],
+      message: 'carousel_slot is only allowed for carousel destination',
+    });
+  }
+});
+
+const campaignUpdateSchema = baseCampaignSchema.partial().superRefine((data, ctx) => {
+  validateAgeTargeting(data, ctx);
+  if (data.destination === 'carousel' && data.carousel_slot === undefined && 'destination' in data) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['carousel_slot'],
+      message: 'carousel_slot is required when destination is changed to carousel',
+    });
+  }
+  if (data.destination !== undefined && data.destination !== 'carousel' && data.carousel_slot !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['carousel_slot'],
+      message: 'carousel_slot cannot be specified for non-carousel destinations',
+    });
+  }
+});
 
 type CampaignInput = z.infer<typeof campaignSchema>;
 type CampaignUpdateInput = z.infer<typeof campaignUpdateSchema>;
