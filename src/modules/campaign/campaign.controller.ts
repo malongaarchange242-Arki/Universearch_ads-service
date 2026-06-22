@@ -64,13 +64,6 @@ function validateAgeTargeting(
 
 const campaignSchema = baseCampaignSchema.superRefine((data, ctx) => {
   validateAgeTargeting(data, ctx);
-  if (data.destination === 'carousel' && data.carousel_slot === undefined) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['carousel_slot'],
-      message: 'carousel_slot is required for carousel destination',
-    });
-  }
   if (data.destination !== 'carousel' && data.carousel_slot !== undefined) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
