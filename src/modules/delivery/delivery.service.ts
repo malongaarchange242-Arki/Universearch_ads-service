@@ -332,15 +332,23 @@ export class DeliveryService {
     }
 
     // Gender matching
-    if (campaign.target_gender && campaign.target_gender !== userProfile.gender) {
-      console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: gender mismatch (ad="${campaign.target_gender}", user="${userProfile.gender}")`);
-      return false;
+    const campaignGender = this.normalizeGender(String(campaign.target_gender || '').trim().toLowerCase());
+    if (campaignGender && !['all', 'tous', 'toutes'].includes(campaignGender)) {
+      const userGender = this.normalizeGender(userProfile.gender);
+      if (!userGender || userGender !== campaignGender) {
+        console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: gender mismatch (ad="${campaignGender}", user="${userProfile.gender}")`);
+        return false;
+      }
     }
 
     // User type matching (bachelier / etudiant / parent)
-    if (campaign.target_user_type && campaign.target_user_type !== userProfile.user_type) {
-      console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: user_type mismatch (ad="${campaign.target_user_type}", user="${userProfile.user_type}")`);
-      return false;
+    const campaignUserType = String(campaign.target_user_type || '').trim().toLowerCase();
+    if (campaignUserType && !['all', 'tous', 'toutes'].includes(campaignUserType)) {
+      const userType = String(userProfile.user_type || '').trim().toLowerCase();
+      if (!userType || userType !== campaignUserType) {
+        console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: user_type mismatch (ad="${campaignUserType}", user="${userProfile.user_type}")`);
+        return false;
+      }
     }
 
     // Age matching
@@ -349,9 +357,13 @@ export class DeliveryService {
     }
 
     // Location matching
-    if (campaign.location && campaign.location !== userProfile.location) {
-      console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: location mismatch`);
-      return false;
+    const campaignLocation = String(campaign.location || '').trim().toLowerCase();
+    if (campaignLocation && !['all', 'tous', 'toutes'].includes(campaignLocation)) {
+      const userLocation = String(userProfile.location || '').trim().toLowerCase();
+      if (!userLocation || userLocation !== campaignLocation) {
+        console.log(`[matchesUserProfile] Ad ${campaign.id} filtered: location mismatch (ad="${campaignLocation}", user="${userProfile.location}")`);
+        return false;
+      }
     }
 
     console.log(`[matchesUserProfile] Ad ${campaign.id} PASSED filtering`);
