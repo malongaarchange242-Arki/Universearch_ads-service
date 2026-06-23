@@ -269,7 +269,7 @@ class DeliveryService {
                 .select('*')
                 .eq('status', 'active')
                 .eq('destination', 'carousel')
-                .order('created_at', { ascending: false }); // Plus récentes d'abord
+                .order('carousel_slot', { ascending: true }); // Slots fixes 1..7
             const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Supabase timeout')), this.SUPABASE_TIMEOUT_MS));
             const { data: campaigns, error } = await Promise.race([
                 queryPromise,
@@ -296,7 +296,9 @@ class DeliveryService {
                 title: campaign.title,
                 mediaUrl: campaign.media_url || '',
                 clickUrl: campaign.click_url || '',
-                position: index,
+                position: Number.isInteger(campaign.carousel_slot)
+                    ? campaign.carousel_slot - 1
+                    : index,
                 description: campaign.description,
             }));
             return ads;
