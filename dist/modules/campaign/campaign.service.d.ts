@@ -8,6 +8,8 @@ export interface Campaign {
     destination?: 'carousel' | 'shorts';
     carousel_slot?: number;
     click_url?: string;
+    contacts?: string;
+    lien?: string;
     target_gender?: string;
     target_user_type?: string;
     target_users?: string[];

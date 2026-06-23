@@ -16,6 +16,8 @@ export interface Campaign {
   destination?: 'carousel' | 'shorts';
   carousel_slot?: number;
   click_url?: string;
+  contacts?: string;
+  lien?: string;
   target_gender?: string;
   target_user_type?: string;
   target_users?: string[];
@@ -314,7 +316,44 @@ export class CampaignService {
 
     if (error) throw error;
 
-    return data;
+    const updated = data as Campaign;
+
+    // If the update requests sending notifications, or the carousel slot changed,
+    // schedule the notify flow (fire-and-forget) to mirror create flow.
+    const slotChanged = updates.carousel_slot !== undefined;
+    if (updates.send_notifications || slotChanged) {
+      const campaignInput: Omit<Campaign, 'id' | 'created_at'> = {
+        title: updated.title,
+        description: updated.description,
+        media_url: updated.media_url,
+        media_type: updated.media_type,
+        destination: updated.destination,
+        carousel_slot: updated.carousel_slot,
+        click_url: (updated as any).click_url,
+        target_gender: updated.target_gender,
+        target_user_type: updated.target_user_type,
+        target_users: updated.target_users,
+        min_age: updated.min_age,
+        max_age: updated.max_age,
+        target_age: updated.target_age,
+        age_tolerance: updated.age_tolerance,
+        location: updated.location,
+        status: updated.status,
+        send_notifications: true,
+        notification_message: (updates.notification_message ?? updated.notification_message) as string | undefined,
+      };
+
+      // Fire-and-forget with small delay to avoid blocking the update response
+      setTimeout(async () => {
+        try {
+          await this.notifyCampaignLaunch(updated, campaignInput);
+        } catch (err) {
+          console.error('❌ Error in scheduled campaign notification (update):', err);
+        }
+      }, 100);
+    }
+
+    return updated;
   }
 
   async deleteCampaign(id: string): Promise<void> {
