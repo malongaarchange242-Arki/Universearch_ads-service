@@ -18,7 +18,7 @@ ALTER TABLE ads_campaigns
 ADD CONSTRAINT IF NOT EXISTS ads_carousel_slot_unique UNIQUE (carousel_slot);
 
 ALTER TABLE ads_campaigns
-ADD CONSTRAINT IF NOT EXISTS ads_carousel_slot_valid CHECK ((destination <> 'carousel' AND carousel_slot IS NULL) OR (destination = 'carousel' AND carousel_slot BETWEEN 1 AND 7));
+ADD CONSTRAINT IF NOT EXISTS ads_carousel_slot_valid CHECK ((destination <> 'carousel' AND carousel_slot IS NULL) OR (destination = 'carousel' AND carousel_slot >= 1));
 
 ALTER TABLE ads_campaigns
 ADD COLUMN IF NOT EXISTS max_age integer;

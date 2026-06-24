@@ -15,7 +15,7 @@ const baseCampaignSchema = z.object({
   target_gender: z.string().optional(),
   target_user_type: z.string().optional(),
   target_users: z.array(z.string()).optional(),
-  carousel_slot: z.number().int().min(1).max(7).optional(),
+  carousel_slot: z.number().int().min(1).optional(),
   click_url: z.string().url().optional(),
   contacts: z.string().optional(),
   lien: z.string().url().optional(),

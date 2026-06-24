@@ -118,11 +118,14 @@ export class CampaignService {
 
       const nextSlot = slotToUse !== undefined
         ? slotToUse
-        : [1, 2, 3, 4, 5, 6, 7].find((slot) => !occupiedSlots.has(slot));
-
-      if (nextSlot === undefined) {
-        throw new Error('Toutes les slots carousel 1..7 sont occupées');
-      }
+        : (() => {
+            const firstFree = [1, 2, 3, 4, 5, 6, 7].find((slot) => !occupiedSlots.has(slot));
+            if (firstFree !== undefined) {
+              return firstFree;
+            }
+            const maxUsed = Array.from(occupiedSlots).reduce((max, value) => Math.max(max, value), 0);
+            return maxUsed + 1;
+          })();
 
       const campaignWithSlot = {
         ...campaign,
@@ -330,6 +333,8 @@ export class CampaignService {
         destination: updated.destination,
         carousel_slot: updated.carousel_slot,
         click_url: (updated as any).click_url,
+        contacts: updated.contacts,
+        lien: updated.lien,
         target_gender: updated.target_gender,
         target_user_type: updated.target_user_type,
         target_users: updated.target_users,
