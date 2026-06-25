@@ -8,6 +8,8 @@ export interface CarouselAd {
   title: string;
   mediaUrl: string;
   clickUrl: string;
+  lien?: string;
+  contacts?: string;
   position?: number;
   description?: string;
 }
@@ -424,6 +426,10 @@ export class DeliveryService {
         title: campaign.title,
         mediaUrl: campaign.media_url || '',
         clickUrl: campaign.click_url || '',
+        // Expose optional fields used by clients: `lien` and `contacts`.
+        // Prefer explicit campaign properties, fallback to common alternative columns.
+        lien: (campaign.lien as any) || (campaign.links as any) || (campaign.link as any) || (campaign.url as any) || '',
+        contacts: (campaign.contacts as any) || (campaign.carousel_1 as any) || (campaign.phone as any) || (campaign.tel as any) || '',
         position: Number.isInteger(campaign.carousel_slot)
           ? campaign.carousel_slot! - 1
           : index,
