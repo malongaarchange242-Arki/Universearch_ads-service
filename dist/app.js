@@ -26,7 +26,7 @@ exports.app.register(multipart_1.default, {
 });
 exports.app.register(cors_1.default, {
     origin: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
 });
 /**
  * Décorateurs
@@ -53,6 +53,9 @@ exports.app.addHook('onResponse', (request, reply) => {
 /**
  * Health check - Instantané (zéro dépendance)
  */
+exports.app.head('/health', async (_request, reply) => {
+    return reply.code(200).send();
+});
 exports.app.get('/health', async () => {
     return {
         service: 'ads-service',

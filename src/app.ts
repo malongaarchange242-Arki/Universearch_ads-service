@@ -24,7 +24,7 @@ app.register(multipart, {
 
 app.register(cors, {
   origin: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
 })
 
 /**
@@ -58,6 +58,10 @@ app.addHook('onResponse', (request, reply) => {
 /**
  * Health check - Instantané (zéro dépendance)
  */
+app.head('/health', async (_request, reply) => {
+  return reply.code(200).send()
+})
+
 app.get('/health', async () => {
   return {
     service: 'ads-service',

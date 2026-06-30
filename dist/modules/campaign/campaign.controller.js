@@ -13,7 +13,7 @@ const baseCampaignSchema = zod_1.z.object({
     target_gender: zod_1.z.string().optional(),
     target_user_type: zod_1.z.string().optional(),
     target_users: zod_1.z.array(zod_1.z.string()).optional(),
-    carousel_slot: zod_1.z.number().int().min(1).max(7).optional(),
+    carousel_slot: zod_1.z.number().int().min(1).optional(),
     click_url: zod_1.z.string().url().optional(),
     contacts: zod_1.z.string().optional(),
     lien: zod_1.z.string().url().optional(),

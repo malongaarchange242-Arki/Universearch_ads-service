@@ -5,6 +5,8 @@ export interface CarouselAd {
     title: string;
     mediaUrl: string;
     clickUrl: string;
+    lien?: string;
+    contacts?: string;
     position?: number;
     description?: string;
 }

@@ -296,6 +296,10 @@ class DeliveryService {
                 title: campaign.title,
                 mediaUrl: campaign.media_url || '',
                 clickUrl: campaign.click_url || '',
+                // Expose optional fields used by clients: `lien` and `contacts`.
+                // Prefer explicit campaign properties, fallback to common alternative columns.
+                lien: campaign.lien || campaign.links || campaign.link || campaign.url || '',
+                contacts: campaign.contacts || campaign.carousel_1 || campaign.phone || campaign.tel || '',
                 position: Number.isInteger(campaign.carousel_slot)
                     ? campaign.carousel_slot - 1
                     : index,
